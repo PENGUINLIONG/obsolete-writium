@@ -1,0 +1,8 @@
+[package]
+name = "writus"
+version = "0.1.0"
+authors = ["PENGUINLIONG <admin@penguinliong.moe>"]
+
+[dependencies]
+iron = "0.5.1"
+markdown = "0.2"
