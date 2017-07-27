@@ -25,7 +25,7 @@ When a requested file does not belong to a certain catagory, or does not exist a
 
 ## Posts
 
-Posts are written in common Markdown, place them in `./post`.
+Posts are written in common Markdown and encoded in UTF-8. Place them in `./post`.
 
 ## Static Files
 
