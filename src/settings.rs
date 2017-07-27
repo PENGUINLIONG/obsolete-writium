@@ -10,4 +10,4 @@ pub const ERROR_DIR: &str = "F:/Published/error";
 /// The directory where template files located.
 pub const TEMPLATE_DIR: &str = "F:/Published/template";
 /// The directory where static resources located.
-pub const STATIC_DIR: &str = "F:/Published/template";
+pub const STATIC_DIR: &str = "F:/Published/static";
