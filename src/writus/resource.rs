@@ -7,9 +7,11 @@ pub enum Resource {
         media_type: String,
         data: Vec<u8>,
     },
+    InvalidMaterial,
     Article {
         content: String
     },
+    InvalidArticle,
 }
 
 /// Load resource from local storage.
@@ -57,7 +59,7 @@ fn deduct_type_by_ext(local_path: &str) -> Option<&str> {
 
 /// Get resource file.
 pub fn get_resource(local_path: &str, in_post: bool) -> Option<Resource> {
-    use self::Resource::{Article, Material};
+    use self::Resource::{Article, InvalidArticle, Material, InvalidMaterial};
     match deduct_type_by_ext(&local_path) {
         // Extension present, return material.
         Some(media_type) => match load_resource(local_path) {
@@ -65,7 +67,7 @@ pub fn get_resource(local_path: &str, in_post: bool) -> Option<Resource> {
                 media_type: media_type.to_owned(),
                 data: data,
             }),
-            None => None,
+            None => Some(InvalidMaterial),
         },
         // Extension absent, return article.
         None => if in_post { // Article can only be in `./post`.
@@ -74,9 +76,9 @@ pub fn get_resource(local_path: &str, in_post: bool) -> Option<Resource> {
                     Ok(content) => Some(Article {
                         content: content,
                     }),
-                    Err(_) => None,
+                    Err(_) => Some(InvalidArticle),
                 },
-                None => None,
+                None => Some(InvalidArticle),
             }
         } else {
             None

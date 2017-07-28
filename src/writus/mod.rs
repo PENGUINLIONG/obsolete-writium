@@ -45,12 +45,14 @@ fn make_response(req: &Request) -> Response {
         },
     };
     // Read data from storage.
-    use self::resource::Resource::{Article, Material};
+    use self::resource::Resource::{Article, InvalidArticle, Material, InvalidMaterial};
     let local_path = local_dir + &"/" + &path[1..].join("/");
     match resource::get_resource(&local_path, search_dir == "post") {
         Some(rsc) => match rsc {
             Article { content } => gen_page(markdown::to_html(&content)),
+            InvalidArticle => gen_error_page(status::NotFound),
             Material { media_type, data } => gen_spec(data, media_type),
+            InvalidMaterial => gen_error(status::NotFound),
         },
         None => gen_error_page(status::NotFound),
     }
