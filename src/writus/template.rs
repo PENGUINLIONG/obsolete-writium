@@ -25,7 +25,7 @@ fn get_fragment(path: &str, vars: &TemplateVariables) -> String {
 }
 fn get_variable(name: &str, vars: &TemplateVariables) -> String {
     match vars.get(&name.to_lowercase()) {
-        Some(var) => var.to_owned(), ////////////////////////////////////////////////// check existency after assignment.
+        Some(var) => var.to_owned(),
         None => "".to_owned(),
     }
 }

@@ -1,9 +1,13 @@
+extern crate chrono;
 extern crate json;
 extern crate markdown;
 
+use std::fs;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
+
+use self::chrono::Local;
 
 use self::json::JsonValue::Object;
 
@@ -75,6 +79,52 @@ fn deduct_type_by_ext(local_path: &str) -> Option<&str> {
     }
 }
 
+/// Complete template variable map with default value.
+fn complete_with_default(local_path: &str, vars: &mut template::TemplateVariables) {
+    if !vars.contains_key("author") {
+        vars.insert("author".to_owned(), "Akari".to_owned());
+    }
+    if !vars.contains_key("title") {
+        vars.insert("title".to_owned(), "Untitled".to_owned());
+    }
+    if !vars.contains_key("pub-date") {
+        vars.insert("pub-date".to_owned(),
+            match fs::metadata(local_path.to_owned() + "content.md") {
+            Ok(file_meta) => match file_meta.created() {
+                Ok(sys_time) => chrono::DateTime::<Local>::from(sys_time)
+                    .format("%Y-%m-%d").to_string(),
+                Err(_) => "".to_owned(),
+            },
+            Err(_) => "".to_owned(),
+        });
+    }
+}
+/// Get metadata of given post, set default value if necessary.
+fn get_metadata(local_path: &str) -> Option<template::TemplateVariables> {
+    let mut vars = template::TemplateVariables::new();
+
+    let content_path = local_path.to_owned() + "content.md";
+    let content = match load_text_resource(&content_path) {
+        Some(cont) => markdown::to_html(&cont),
+        None => return None,
+    };
+    let metadata_path = local_path.to_owned() + "metadata.json";
+    let metadata = match load_text_resource(&metadata_path) {
+        Some(cont) => match json::parse(&cont) {
+            Ok(Object(parsed)) => parsed,
+            Ok(_) => return None,
+            Err(_) => return None,
+        },
+        None => return None,
+    };
+    for (key, val) in metadata.iter() {
+        vars.insert(key.to_owned(), val.as_str().unwrap().to_owned());
+    }
+    vars.entry("content".to_owned()).or_insert(content);
+    complete_with_default(local_path, &mut vars);
+    Some(vars)
+}
+
 /// Get resource file.
 pub fn get_resource(local_path: &str, in_post: bool) -> Option<Resource> {
     use self::Resource::{Article, InvalidArticle, Material, InvalidMaterial, AddSlash};
@@ -94,28 +144,12 @@ pub fn get_resource(local_path: &str, in_post: bool) -> Option<Resource> {
             if !local_path.ends_with("/") {
                 return Some(AddSlash);
             }
-            let content_path = local_path.to_owned() + "content.md";
-            let content = match load_text_resource(&content_path) {
-                Some(cont) => markdown::to_html(&cont),
+
+            let vars = match get_metadata(local_path) {
+                Some(v) => v,
                 None => return Some(InvalidArticle),
             };
-            let metadata_path = local_path.to_owned() + "metadata.json";
-            let metadata = match load_text_resource(&metadata_path) {
-                Some(cont) => match json::parse(&cont) {
-                    Ok(Object(parsed)) => parsed,
-                    Ok(_) => return Some(InvalidArticle),
-                    Err(_) => return Some(InvalidArticle),
-                },
-                None => return Some(InvalidArticle),
-            };
-            let mut vars = template::TemplateVariables::new();
-            vars.entry("content".to_owned()).or_insert(content);
-            for (key, val) in metadata.iter() {
-                if val.is_string() {
-                    vars.entry(key.to_owned())
-                        .or_insert(val.as_str().unwrap().to_owned());
-                }
-            }
+
             let template_path = settings::TEMPLATE_DIR.to_owned() +
                 settings::POST_TEMPLATE_PATH;
             let template = match load_text_resource(&template_path) {
