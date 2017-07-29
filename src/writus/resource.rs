@@ -1,6 +1,14 @@
+extern crate json;
+extern crate markdown;
+
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
+
+use self::json::JsonValue::Object;
+
+use writus::settings;
+use writus::template;
 
 pub enum Resource {
     Material {
@@ -12,6 +20,7 @@ pub enum Resource {
         content: String
     },
     InvalidArticle,
+    AddSlash,
 }
 
 /// Load resource from local storage.
@@ -30,6 +39,15 @@ fn load_resource(local_path: &str) -> Option<Vec<u8>> {
         }
     } else {
         None
+    }
+}
+fn load_text_resource(local_path: &str) -> Option<String> {
+    match load_resource(&local_path) {
+        Some(data) => match String::from_utf8(data) {
+            Ok(text) => Some(text),
+            Err(_) => None,
+        },
+        None => None,
     }
 }
 
@@ -59,7 +77,7 @@ fn deduct_type_by_ext(local_path: &str) -> Option<&str> {
 
 /// Get resource file.
 pub fn get_resource(local_path: &str, in_post: bool) -> Option<Resource> {
-    use self::Resource::{Article, InvalidArticle, Material, InvalidMaterial};
+    use self::Resource::{Article, InvalidArticle, Material, InvalidMaterial, AddSlash};
     match deduct_type_by_ext(&local_path) {
         // Extension present, return material.
         Some(media_type) => match load_resource(local_path) {
@@ -71,16 +89,45 @@ pub fn get_resource(local_path: &str, in_post: bool) -> Option<Resource> {
         },
         // Extension absent, return article.
         None => if in_post { // Article can only be in `./post`.
-            match load_resource(&(local_path.to_owned() + ".md")) {
-                Some(data) => match String::from_utf8(data) {
-                    Ok(content) => Some(Article {
-                        content: content,
-                    }),
-                    Err(_) => Some(InvalidArticle),
+            // Ensure requested url is in form of `/foo/` rather than `/foo`. It allows
+            // the client to acquire resources in the same directory.
+            if !local_path.ends_with("/") {
+                return Some(AddSlash);
+            }
+            let content_path = local_path.to_owned() + "content.md";
+            let content = match load_text_resource(&content_path) {
+                Some(cont) => markdown::to_html(&cont),
+                None => return Some(InvalidArticle),
+            };
+            let metadata_path = local_path.to_owned() + "metadata.json";
+            let metadata = match load_text_resource(&metadata_path) {
+                Some(cont) => match json::parse(&cont) {
+                    Ok(Object(parsed)) => parsed,
+                    Ok(_) => return Some(InvalidArticle),
+                    Err(_) => return Some(InvalidArticle),
                 },
+                None => return Some(InvalidArticle),
+            };
+            let mut vars = template::TemplateVariables::new();
+            vars.entry("content".to_owned()).or_insert(content);
+            for (key, val) in metadata.iter() {
+                if val.is_string() {
+                    vars.entry(key.to_owned())
+                        .or_insert(val.as_str().unwrap().to_owned());
+                }
+            }
+            let template_path = settings::TEMPLATE_DIR.to_owned() +
+                settings::POST_TEMPLATE_PATH;
+            let template = match load_text_resource(&template_path) {
+                Some(tmpl) => tmpl,
+                None => return Some(InvalidArticle),
+            };
+            match template::fill_template(&template, &vars) {
+                Some(filled) => Some(Article{content: filled}),
                 None => Some(InvalidArticle),
             }
         } else {
+            // Unrecognized resource type.
             None
         }
     }

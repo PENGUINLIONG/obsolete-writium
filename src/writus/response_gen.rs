@@ -86,3 +86,10 @@ pub fn gen_error_page(code: status::Status) -> Response {
         Err(_) => gen_error(code),
     }
 }
+/// Response redirection.
+pub fn gen_redirection(location: &str) -> Response {
+    println!("Generating Rediretion to: {}", location);
+    let mut res = Response::with((status::Found));
+    res.headers.set_raw("Location", vec![location.to_owned().into_bytes()]);
+    res
+}

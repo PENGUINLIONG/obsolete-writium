@@ -11,3 +11,6 @@ pub const ERROR_DIR: &str = "F:/Published/error";
 pub const TEMPLATE_DIR: &str = "F:/Published/template";
 /// The directory where static resources located.
 pub const STATIC_DIR: &str = "F:/Published/static";
+
+/// Post template file path in $TEMPLATE_DIR.
+pub const POST_TEMPLATE_PATH: &str = "/post.html";

@@ -25,7 +25,7 @@ When a requested file does not belong to a certain catagory, or does not exist a
 
 ## Posts
 
-Posts are written in common Markdown and encoded in UTF-8. Place them in `./post`.
+Posts are written in common Markdown and encoded in UTF-8. Place them in `./post`. Each post, named `content.md`, is place in an individual sub-directory with its metadata. File search is case sensitive.
 
 ## Static Files
 
@@ -47,7 +47,9 @@ To insert runtime variables, write:
 <?var [variable name] ?>
 ```
 
-The following variables are provided:
+Except that variable `content` is direcly derived from the content of `content.md`, other variables have to be manually defined by users, in file `metadata.json`. File search and variable name are case sensitive. The following variables are recommended to be defined and will be set with default value in case of absence. Parse error born by `metadata.json` will be ignored, and will not prevent Writus from working properly.
 
-`Title`: First line of the article. Any preceeding hash sign will be removed.
-`Content`: Content of the article, starting from the 2nd line.
+`author`: Name or alias of post author. [default: `Akari`]
+`content`: Content of the article, the content of `content.md`. (Already defined)
+`pub-date`: Publish date. [default: File creation date. ]
+`title`: Title of article. [default: `Untitled`]
