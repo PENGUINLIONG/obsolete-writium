@@ -1,6 +1,7 @@
+use std::ffi::OsStr;
 use std::fs::File;
 use std::io::Read;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use writus::settings;
 use writus::template::TemplateVariables;
@@ -22,9 +23,8 @@ pub enum Resource {
 ///
 /// Some(~) will be returned if the requested resource is successfully read.
 /// None, otherwise.
-fn load_resource(local_path: &str) -> Option<Vec<u8>> {
-    println!("Looking for file in local storage: {}", local_path);
-    let local_path = Path::new(&local_path);
+fn load_resource(local_path: &Path) -> Option<Vec<u8>> {
+    println!("Looking for file in local storage: {:?}", local_path);
     if let Ok(mut file) = File::open(&local_path) {
         // Fetch content.
         let mut content = Vec::<u8>::new();
@@ -36,18 +36,22 @@ fn load_resource(local_path: &str) -> Option<Vec<u8>> {
         None
     }
 }
-fn load_text_resource(local_path: &str) -> Option<String> {
-    match load_resource(&local_path) {
-        Some(data) => match String::from_utf8(data) {
-            Ok(text) => Some(text),
+fn load_text_resource(local_path: &Path) -> Option<String> {
+    println!("Looking for text file in local storage: {:?}", local_path);
+    if let Ok(mut file) = File::open(&local_path) {
+        // Fetch content.
+        let mut content = String::new();
+        match file.read_to_string(&mut content) {
+            Ok(_) => Some(content),
             Err(_) => None,
-        },
-        None => None,
+        }
+    } else {
+        None
     }
 }
 
 /// Get file extension in path. None is returned if there isn't one.
-fn deduct_type_by_ext(local_path: &str) -> Option<&str> {
+fn deduce_type_by_ext(local_path: &Path) -> Option<&str> {
     /// Map file extension to media type.
     fn map_ext(ext: &str) -> Option<&str> {
         match ext {
@@ -64,13 +68,10 @@ fn deduct_type_by_ext(local_path: &str) -> Option<&str> {
             _ => None,
         }
     }
-    match local_path.rfind(".") {
-        Some(ext_pos) => map_ext(&local_path[(ext_pos + 1)..]),
-        None => None,
-    }
+    local_path.extension().and_then(OsStr::to_str).and_then(map_ext)
 }
 
-pub fn get_material(local_path: &str, media_type: &str) -> Option<Resource> {
+pub fn get_material(local_path: &Path, media_type: &str) -> Option<Resource> {
     use self::Resource::{Material, InvalidMaterial};
 
     match load_resource(local_path) {
@@ -81,43 +82,43 @@ pub fn get_material(local_path: &str, media_type: &str) -> Option<Resource> {
         None => Some(InvalidMaterial),
     }
 }
-pub fn get_article(local_path: &str, in_post: bool) -> Option<Resource> {
-    use self::Resource::{Article, InvalidArticle, AddSlash};
+pub fn get_article(local_path: &Path, in_post: bool) -> Option<Resource> {
+    use self::Resource::{Article, InvalidArticle};
 
-    if in_post { // Article can only be in `./post`.
-        // Ensure requested url is in form of `/foo/` rather than `/foo`. It allows
-        // the client to acquire resources in the same directory.
-        if !local_path.ends_with("/") && !local_path.ends_with("\\") {
-            return Some(AddSlash);
-        }
+    let vars = match TemplateVariables::read_metadata(local_path) {
+        Some(v) => v,
+        None => return Some(InvalidArticle),
+    };
 
-        let vars = match TemplateVariables::read_metadata(local_path) {
-            Some(v) => v,
-            None => return Some(InvalidArticle),
-        };
-
-        let template_path = settings::TEMPLATE_DIR.to_owned() +
-            settings::POST_TEMPLATE_PATH;
-        let template = match load_text_resource(&template_path) {
-            Some(tmpl) => tmpl,
-            None => return Some(InvalidArticle),
-        };
-        match vars.fill_template(&template) {
-            Some(filled) => Some(Article{content: filled}),
-            None => Some(InvalidArticle),
-        }
-    } else {
-        // Unrecognized resource type.
-        None
+    let mut template_path = PathBuf::new();
+    template_path.push(settings::TEMPLATE_DIR);
+    template_path.push(settings::POST_TEMPLATE_PATH);
+    let template = match load_text_resource(template_path.as_path()) {
+        Some(tmpl) => tmpl,
+        None => return Some(InvalidArticle),
+    };
+    match vars.fill_template(&template) {
+        Some(filled) => Some(Article{content: filled}),
+        None => Some(InvalidArticle),
     }
 }
 /// Get resource file.
 pub fn get_resource(local_path: &str, in_post: bool) -> Option<Resource> {
-
-    match deduct_type_by_ext(&local_path) {
+    use self::Resource::AddSlash;
+    match deduce_type_by_ext(Path::new(&local_path)) {
         // Extension present, return material.
-        Some(media_type) => get_material(local_path, media_type),
+        Some(media_type) => get_material(Path::new(&local_path), media_type),
         // Extension absent, return article.
-        None => get_article(local_path, in_post),
+        None => if in_post { // Article can only be in `./post`.
+                // Ensure requested url is in form of `/foo/` rather than `/foo`. It allows
+                // the client to acquire resources in the same directory.
+                if !local_path.ends_with("/") && !local_path.ends_with("\\") {
+                    return Some(AddSlash);
+                }
+                get_article(Path::new(&local_path), in_post)
+            } else {
+                // Unrecognized resource type.
+                None
+            },
     }
 }

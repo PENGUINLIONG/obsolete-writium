@@ -14,5 +14,5 @@ pub const STATIC_DIR: &str = "F:/Published/static";
 /// The directory where cache is output.
 pub const CACHE_DIR: &str = "F:/Published/cache";
 
-/// Post template file path in $TEMPLATE_DIR.
-pub const POST_TEMPLATE_PATH: &str = "/post.html";
+/// Post template file path in $TEMPLATE_DIR. MUST NOT have slash as prefix.
+pub const POST_TEMPLATE_PATH: &str = "post.html";

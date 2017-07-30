@@ -1,5 +1,3 @@
-extern crate notify;
-
 use std::fs;
 use std::fs::{DirEntry, File};
 use std::io;
@@ -32,8 +30,8 @@ impl Cache {
 
                 let mut article_path = entry.path();
                 article_path.push("");
-                let filled = match resource::get_article(article_path.to_str().unwrap(), true) {
-                    Some(resource::Resource::AddSlash) => {println!("hell."); "".to_owned()},
+                let filled =
+                    match resource::get_article(article_path.as_path(), true) {
                     Some(resource::Resource::Article { content }) => content,
                     _ => continue,
                 };

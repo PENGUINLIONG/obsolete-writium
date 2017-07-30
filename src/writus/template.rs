@@ -6,7 +6,7 @@ use std::fs;
 use std::fs::File;
 use std::io::Read;
 use std::collections::BTreeMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use self::chrono::Local;
 
@@ -19,13 +19,15 @@ pub struct TemplateVariables {
 }
 
 impl TemplateVariables {
-    pub fn read_metadata(local_path: &str) -> Option<TemplateVariables> {
+    pub fn read_metadata(local_path: &Path) -> Option<TemplateVariables> {
         let mut rv = TemplateVariables {
             vars: BTreeMap::new(),
         };
 
-        let metadata_path = local_path.to_owned() + "metadata.json";
-        let metadata = match File::open(Path::new(&metadata_path)) {
+        let mut metadata_path = PathBuf::new();
+        metadata_path.push(local_path);
+        metadata_path.push("metadata.json");
+        let metadata = match File::open(metadata_path.as_path()) {
             Ok(mut file) => {
                 let mut cont = String::new();
                 if file.read_to_string(&mut cont).is_err() { return None; }
@@ -43,8 +45,11 @@ impl TemplateVariables {
         Some(rv)
     }
 
-    fn get_fragment(&self, path: &str) -> Option<String> {
-        match File::open(settings::TEMPLATE_DIR.to_owned() + path) {
+    fn get_fragment(&self, rel_path: &Path) -> Option<String> {
+        let mut path = PathBuf::new();
+        path.push(settings::TEMPLATE_DIR);
+        path.push(rel_path);
+        match File::open(path.as_path()) {
             Ok(mut file) => {
                 let mut content = String::new();
                 match file.read_to_string(&mut content) {
@@ -88,7 +93,7 @@ impl TemplateVariables {
                             // Insert fragment.
                             let frag_path = parts[1].trim();
                             println!("Inline fragment: {}", frag_path);
-                            rv += &self.get_fragment(frag_path).unwrap_or_default();
+                            rv += &self.get_fragment(Path::new(frag_path)).unwrap_or_default();
                         } else if parts[0] == "var" {
                             // Insert variable.
                             let var_name = parts[1].trim();
@@ -105,9 +110,12 @@ impl TemplateVariables {
     }
 
     /// Complete template variable map with default value.
-    fn complete_with_default(&mut self, local_path: &str) {
-        fn get_content(local_path: &str) -> Option<String> {
-            match File::open(local_path.to_owned() + "content.md") {
+    fn complete_with_default(&mut self, local_path: &Path) {
+        fn get_content(local_path: &Path) -> Option<String> {
+            let mut path = PathBuf::new();
+            path.push(local_path);
+            path.push("content.md");
+            match File::open(path.as_path()) {
                 Ok(mut file) => {
                     let mut content = String::new();
                     match file.read_to_string(&mut content) {
@@ -118,8 +126,11 @@ impl TemplateVariables {
                 Err(_) => None,
             }
         }
-        fn get_create_date(local_path: &str) -> Option<String> {
-                match fs::metadata(local_path.to_owned() + "content.md") {
+        fn get_create_date(local_path: &Path) -> Option<String> {
+            let mut path = PathBuf::new();
+            path.push(local_path);
+            path.push("content.md");
+            match fs::metadata(local_path) {
                 Ok(file_meta) => match file_meta.created() {
                     Ok(sys_time) =>
                         Some(chrono::DateTime::<Local>::from(sys_time)
