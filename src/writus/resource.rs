@@ -102,23 +102,51 @@ pub fn get_article(local_path: &Path, in_post: bool) -> Option<Resource> {
         None => Some(InvalidArticle),
     }
 }
+fn load_cached_article(local_path: &Path) -> Option<String> {
+    println!("trash");
+    match local_path.canonicalize() {
+        Ok(name) => {
+            let name = match name.file_name().and_then(OsStr::to_str) {
+                Some(nm) => nm,
+                None => return None,
+            };
+            let mut cache_path = PathBuf::new();
+            cache_path.push(settings::CACHE_DIR);
+            cache_path.push(name);
+            cache_path.set_extension("writuscache");
+            load_text_resource(cache_path.as_path())
+        },
+        Err(_) => None,
+    }
+}
 /// Get resource file.
 pub fn get_resource(local_path: &str, in_post: bool) -> Option<Resource> {
-    use self::Resource::AddSlash;
+    use self::Resource::{AddSlash, Article};
+
+    let path = Path::new(&local_path);
     match deduce_type_by_ext(Path::new(&local_path)) {
         // Extension present, return material.
-        Some(media_type) => get_material(Path::new(&local_path), media_type),
+        Some(media_type) => get_material(&path, media_type),
         // Extension absent, return article.
         None => if in_post { // Article can only be in `./post`.
-                // Ensure requested url is in form of `/foo/` rather than `/foo`. It allows
-                // the client to acquire resources in the same directory.
-                if !local_path.ends_with("/") && !local_path.ends_with("\\") {
-                    return Some(AddSlash);
-                }
-                get_article(Path::new(&local_path), in_post)
+            // Ensure requested url is in form of `/foo/` rather than `/foo`. It allows
+            // the client to acquire resources in the same directory.
+            if !local_path.ends_with("/") && !local_path.ends_with("\\") {
+                return Some(AddSlash);
+            }
+            // Look for cached pages first.
+            if let Some(cached) = load_cached_article(&path) {
+                println!("Found cache. Use cached page instead.");
+                return Some(Article{ content: cached });
             } else {
-                // Unrecognized resource type.
-                None
-            },
+                println!("Cache not found. Generate page now.");
+            }
+
+            // Cache not found, generate now.
+            get_article(&path, in_post)
+        } else {
+            // Unrecognized resource type.
+            None
+        },
     }
 }
