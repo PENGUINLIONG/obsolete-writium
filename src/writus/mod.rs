@@ -4,6 +4,7 @@ use self::iron::prelude::*;
 use self::iron::method::Method;
 use self::iron::status;
 
+mod cache;
 mod resource;
 mod response_gen;
 mod settings;
@@ -71,5 +72,7 @@ fn response(req: &mut Request) -> IronResult<Response> {
 }
 
 pub fn start() {
+    let ca = cache::Cache::new();
+    ca.gen_cache();
     Iron::new(response).http(settings::HOST_ADDR).unwrap();
 }

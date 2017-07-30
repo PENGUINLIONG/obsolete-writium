@@ -70,45 +70,54 @@ fn deduct_type_by_ext(local_path: &str) -> Option<&str> {
     }
 }
 
+pub fn get_material(local_path: &str, media_type: &str) -> Option<Resource> {
+    use self::Resource::{Material, InvalidMaterial};
+
+    match load_resource(local_path) {
+        Some(data) => Some(Material {
+            media_type: media_type.to_owned(),
+            data: data,
+        }),
+        None => Some(InvalidMaterial),
+    }
+}
+pub fn get_article(local_path: &str, in_post: bool) -> Option<Resource> {
+    use self::Resource::{Article, InvalidArticle, AddSlash};
+
+    if in_post { // Article can only be in `./post`.
+        // Ensure requested url is in form of `/foo/` rather than `/foo`. It allows
+        // the client to acquire resources in the same directory.
+        if !local_path.ends_with("/") && !local_path.ends_with("\\") {
+            return Some(AddSlash);
+        }
+
+        let vars = match TemplateVariables::read_metadata(local_path) {
+            Some(v) => v,
+            None => return Some(InvalidArticle),
+        };
+
+        let template_path = settings::TEMPLATE_DIR.to_owned() +
+            settings::POST_TEMPLATE_PATH;
+        let template = match load_text_resource(&template_path) {
+            Some(tmpl) => tmpl,
+            None => return Some(InvalidArticle),
+        };
+        match vars.fill_template(&template) {
+            Some(filled) => Some(Article{content: filled}),
+            None => Some(InvalidArticle),
+        }
+    } else {
+        // Unrecognized resource type.
+        None
+    }
+}
 /// Get resource file.
 pub fn get_resource(local_path: &str, in_post: bool) -> Option<Resource> {
-    use self::Resource::{Article, InvalidArticle, Material, InvalidMaterial,
-        AddSlash};
+
     match deduct_type_by_ext(&local_path) {
         // Extension present, return material.
-        Some(media_type) => match load_resource(local_path) {
-            Some(data) => Some(Material {
-                media_type: media_type.to_owned(),
-                data: data,
-            }),
-            None => Some(InvalidMaterial),
-        },
+        Some(media_type) => get_material(local_path, media_type),
         // Extension absent, return article.
-        None => if in_post { // Article can only be in `./post`.
-            // Ensure requested url is in form of `/foo/` rather than `/foo`. It allows
-            // the client to acquire resources in the same directory.
-            if !local_path.ends_with("/") {
-                return Some(AddSlash);
-            }
-
-            let vars = match TemplateVariables::read_metadata(local_path) {
-                Some(v) => v,
-                None => return Some(InvalidArticle),
-            };
-
-            let template_path = settings::TEMPLATE_DIR.to_owned() +
-                settings::POST_TEMPLATE_PATH;
-            let template = match load_text_resource(&template_path) {
-                Some(tmpl) => tmpl,
-                None => return Some(InvalidArticle),
-            };
-            match vars.fill_template(&template) {
-                Some(filled) => Some(Article{content: filled}),
-                None => Some(InvalidArticle),
-            }
-        } else {
-            // Unrecognized resource type.
-            None
-        }
+        None => get_article(local_path, in_post),
     }
 }
