@@ -1,16 +1,14 @@
-extern crate chrono;
-extern crate json;
-extern crate markdown;
-
 use std::fs;
 use std::fs::File;
 use std::io::Read;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use self::chrono::Local;
-
-use self::json::JsonValue::Object;
+use writus::chrono;
+use writus::chrono::Local;
+use writus::json;
+use writus::json::JsonValue::Object;
+use writus::markdown;
 
 use writus::settings;
 

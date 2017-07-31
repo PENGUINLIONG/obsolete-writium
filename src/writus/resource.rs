@@ -82,7 +82,7 @@ pub fn get_material(local_path: &Path, media_type: &str) -> Option<Resource> {
         None => Some(InvalidMaterial),
     }
 }
-pub fn get_article(local_path: &Path, in_post: bool) -> Option<Resource> {
+pub fn get_article(local_path: &Path) -> Option<Resource> {
     use self::Resource::{Article, InvalidArticle};
 
     let vars = match TemplateVariables::read_metadata(local_path) {
@@ -143,7 +143,7 @@ pub fn get_resource(local_path: &str, in_post: bool) -> Option<Resource> {
             }
 
             // Cache not found, generate now.
-            get_article(&path, in_post)
+            get_article(&path)
         } else {
             // Unrecognized resource type.
             None

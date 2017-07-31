@@ -1,10 +1,7 @@
 use std::fs;
-use std::fs::{DirEntry, File};
-use std::io;
+use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::sync::mpsc;
-use std::sync::mpsc::{Sender, Receiver};
 
 use writus::settings;
 use writus::resource;
@@ -19,7 +16,10 @@ impl Cache {
         println!("Generating cache.");
         if !Path::new(settings::CACHE_DIR).exists() {
             println!("Cache directory does not exist. Creating one.");
-            fs::create_dir(settings::CACHE_DIR);
+            if let Err(_) = fs::create_dir(settings::CACHE_DIR) {
+                println!("Unable to create cache directory, pages will be generated just-in-time.");
+                return;
+            }
         }
 
         if let Ok(entries) = fs::read_dir(settings::POST_DIR) {
@@ -31,7 +31,7 @@ impl Cache {
                 let mut article_path = entry.path();
                 article_path.push("");
                 let filled =
-                    match resource::get_article(article_path.as_path(), true) {
+                    match resource::get_article(article_path.as_path()) {
                     Some(resource::Resource::Article { content }) => content,
                     _ => continue,
                 };
@@ -42,10 +42,12 @@ impl Cache {
                 cache_path.push(file_name.clone() + &".writuscache");
                 match File::create(cache_path.as_path()) {
                     Ok(mut file) => {
-                        file.write(filled.as_bytes());
-                        println!("Generated cache for: {}", file_name);
+                        match file.write(filled.as_bytes()) {
+                            Ok(_) => println!("Generated cache for: {}", file_name),
+                            Err(_) => println!("Failed to write to cache file."),
+                        }
                     },
-                    Err(_) => { println!("Unable to generate cache for {}", file_name); },
+                    Err(_) => { println!("Unable to create cache file for {}", file_name); },
                 };
             }
         } else {
