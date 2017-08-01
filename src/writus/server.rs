@@ -1,4 +1,5 @@
 use std::io;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread::Builder;
 
@@ -15,10 +16,10 @@ use writus::settings;
 /// Response to incoming requests.
 fn make_response(req: &Request) -> Response {
     /// Map search directory to local storage directory.
-    fn map_search_dir(search_dir: &str) -> Option<String> {
+    fn map_search_dir(search_dir: &str) -> Option<&Path> {
         match search_dir {
-            "post" => Some(settings::POST_DIR.to_owned()),
-            "static" => Some(settings::STATIC_DIR.to_owned()),
+            "post" => Some(Path::new(settings::POST_DIR)),
+            "static" => Some(Path::new(settings::STATIC_DIR)),
             // "error", "template" => No, these are not directly exposed.
             _ => None,
         }
@@ -49,15 +50,33 @@ fn make_response(req: &Request) -> Response {
     // Read data from storage.
     use writus::resource::Resource::{Article, InvalidArticle,
         Material, InvalidMaterial, AddSlash};
-    let path = "/".to_owned() + &path[1..].join("/");
-    let local_path = local_dir + &path;
-    match resource::get_resource(&local_path, search_dir == "post") {
+    let path = &path[1..].join("/");
+    let mut local_path = PathBuf::from(&local_dir);
+    local_path.push(&path);
+    // Make sure requested file is under published directory.
+    match local_path.canonicalize() {
+        Ok(buf) =>
+            // Canonicalize $local_dir because the annoying prefix `\\?\` on
+            // Windows.
+            if !buf.starts_with(Path::new(&local_dir).canonicalize().unwrap()) {
+            // Even you access a file in a published directory from another one
+            // will lead to this error.
+            println!("Requested resource is outside of published directory.");
+            return gen_error(status::Forbidden);
+        },
+        Err(_) => {
+            println!("Resource cannot be located.");
+            return gen_error(status::NotFound);
+        }
+    }
+    // Get resource.
+    match resource::get_resource(local_path.as_path(), search_dir == "post") {
         Some(rsc) => match rsc {
             Article { content } => gen_page(content),
             InvalidArticle => gen_error_page(status::NotFound),
             Material { media_type, data } => gen_spec(data, media_type),
             InvalidMaterial => gen_error(status::NotFound),
-            AddSlash => gen_redirection(&(format!("/{}{}/", &search_dir, &path))),
+            AddSlash => gen_redirection(&(format!("/{}/{}/", &search_dir, &path))),
         },
         None => gen_error_page(status::NotFound),
     }

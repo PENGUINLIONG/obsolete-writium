@@ -119,22 +119,23 @@ fn load_cached_article(local_path: &Path) -> Option<String> {
     }
 }
 /// Get resource file.
-pub fn get_resource(local_path: &str, in_post: bool) -> Option<Resource> {
+pub fn get_resource(local_path: &Path, in_post: bool) -> Option<Resource> {
     use self::Resource::{AddSlash, Article};
 
-    let path = Path::new(&local_path);
-    match deduce_type_by_ext(Path::new(&local_path)) {
+    match deduce_type_by_ext(local_path) {
         // Extension present, return material.
-        Some(media_type) => get_material(&path, media_type),
+        Some(media_type) => get_material(&local_path, media_type),
         // Extension absent, return article.
         None => if in_post { // Article can only be in `./post`.
             // Ensure requested url is in form of `/foo/` rather than `/foo`. It allows
             // the client to acquire resources in the same directory.
-            if !local_path.ends_with("/") && !local_path.ends_with("\\") {
+            let path_literal = local_path.to_str().unwrap_or_default();
+            println!("{}", path_literal);
+            if !path_literal.ends_with('/') && !path_literal.ends_with('\\') {
                 return Some(AddSlash);
             }
             // Look for cached pages first.
-            if let Some(cached) = load_cached_article(&path) {
+            if let Some(cached) = load_cached_article(&local_path) {
                 info!("Found cache. Use cached page instead.");
                 return Some(Article{ content: cached });
             } else {
@@ -142,7 +143,7 @@ pub fn get_resource(local_path: &str, in_post: bool) -> Option<Resource> {
             }
 
             // Cache not found, generate now.
-            get_article(&path)
+            get_article(&local_path)
         } else {
             // Unrecognized resource type.
             None
