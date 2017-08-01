@@ -13,11 +13,11 @@ impl Cache {
         Cache{}
     }
     pub fn gen_cache(&self) {
-        println!("Generating cache.");
+        info!("Generating cache.");
         if !Path::new(settings::CACHE_DIR).exists() {
-            println!("Cache directory does not exist. Creating one.");
+            info!("Cache directory does not exist. Creating one.");
             if let Err(_) = fs::create_dir(settings::CACHE_DIR) {
-                println!("Unable to create cache directory, pages will be generated just-in-time.");
+                warn!("Unable to create cache directory, pages will be generated just-in-time.");
                 return;
             }
         }
@@ -43,28 +43,24 @@ impl Cache {
                 match File::create(cache_path.as_path()) {
                     Ok(mut file) => {
                         match file.write(filled.as_bytes()) {
-                            Ok(_) => println!("Generated cache for: {}", file_name),
-                            Err(_) => println!("Failed to write to cache file."),
+                            Ok(_) => info!("Generated cache for: {}", file_name),
+                            Err(_) => warn!("Failed to write to cache file."),
                         }
                     },
-                    Err(_) => { println!("Unable to create cache file for {}", file_name); },
+                    Err(_) => { warn!("Unable to create cache file for {}", file_name); },
                 };
             }
         } else {
-            println!("Unable to read from post directory.");
+            warn!("Unable to read from post directory.");
         }
     }
 }
 impl Drop for Cache {
     fn drop(&mut self) {
-        println!("Removing all cache.");
+        info!("Removing all cache.");
         let path = Path::new(settings::CACHE_DIR);
-        if !path.exists() {
-            println!("Cache directory does not exist.");
-            return;
-        }
         if let Err(_) = fs::remove_dir_all(path) {
-            println!("Unable to remove cache.");
+            warn!("Unable to remove cache.");
         }
     }
 }

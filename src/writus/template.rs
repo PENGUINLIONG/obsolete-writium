@@ -69,7 +69,7 @@ impl TemplateVariables {
     }
 
     pub fn fill_template(&self, template: &str) -> Option<String> {
-        println!("Filling template.");
+        info!("Filling template.");
         let mut template = template.to_owned();
         let mut rv = String::new();
         loop {
@@ -90,12 +90,12 @@ impl TemplateVariables {
                         if parts[0] == "frag" {
                             // Insert fragment.
                             let frag_path = parts[1].trim();
-                            println!("Inline fragment: {}", frag_path);
+                            info!("Inline fragment: {}", frag_path);
                             rv += &self.get_fragment(Path::new(frag_path)).unwrap_or_default();
                         } else if parts[0] == "var" {
                             // Insert variable.
                             let var_name = parts[1].trim();
-                            println!("Insert variable: {}", var_name);
+                            info!("Insert variable: {}", var_name);
                             rv += &self.get_variable(var_name).unwrap_or_default();
                         }
                     }

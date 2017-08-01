@@ -25,24 +25,24 @@ fn make_response(req: &Request) -> Response {
     }
     // Only GET method is allowed.
     if req.method != Method::Get {
-        println!("Invalid HTTP method.");
+        warn!("Invalid HTTP method.");
         return gen_error_page(status::MethodNotAllowed);
     }
     // $path is guaranteed to have at least 1 element.
     let path = req.url.path();
-    println!("Url of incoming request: {}", req.url);
+    info!("Url of incoming request: {}", req.url);
     // Assign different search directory for different root. If the requested
     // thing doesn't exist, ignore with 404 returned.
     let search_dir = path.get(0).unwrap().to_owned();
     if search_dir == "" {
-        println!("Empty search directory, there will be a index page in the future.");
+        info!("Empty search directory, there will be a index page in the future.");
         return gen_error_page(status::NotFound);
     }
-    println!("Search directory is {}.", search_dir);
+    info!("Search directory is {}.", search_dir);
     let local_dir = match map_search_dir(&search_dir) {
         Some(dir) => dir,
         None => {
-            println!("Search directory not exposed.");
+            info!("Search directory not exposed.");
             return gen_error_page(status::NotFound);
         },
     };
@@ -64,9 +64,9 @@ fn make_response(req: &Request) -> Response {
 }
 
 fn response(req: &mut Request) -> IronResult<Response> {
-    println!("-- Response Begin --");
+    info!("-- Response Begin --");
     let res = Ok(make_response(&req));
-    println!("-- Response End --");
+    info!("-- Response End --");
     return res;
 }
 
@@ -88,10 +88,10 @@ impl Server {
                     .unwrap();
                 let &(ref dumb, ref cvar) = &*arc_held_by_server;
                 if let Err(_) = cvar.wait(dumb.lock().unwrap()) {
-                    println!("Failed to wait for close signal. Going to close now.");
+                    error!("Failed to wait for close signal. Going to close now.");
                 }
                 if let Err(_) = serv.close() {
-                    println!("Failed to close iron.");
+                    error!("Failed to close iron.");
                 }
         });
         // Start cache system.
@@ -119,7 +119,7 @@ impl Server {
                 self.cache = Cache::new();
                 self.cache.gen_cache();
             },
-            _ => println!("Unknown command."),
+            _ => error!("Unknown command."),
         }
         false
     }

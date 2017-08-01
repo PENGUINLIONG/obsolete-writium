@@ -58,13 +58,13 @@ pub fn gen_spec(data: Vec<u8>, content_type: String) -> Response {
 /// Response error code simply.
 pub fn gen_error(code: status::Status) -> Response {
     let err_code_literal = map_error_code(code);
-    println!("Generating error from status {}.", err_code_literal);    
+    info!("Generating error from status {}.", err_code_literal);    
     Response::with((code))
 }
 /// Response error page if it exists. otherwise, response with error code.
 pub fn gen_error_page(code: status::Status) -> Response {
     let err_code_literal = map_error_code(code);
-    println!("Generating error page from status {}.", err_code_literal);
+    info!("Generating error page from status {}.", err_code_literal);
     // Don't use `find_rsc`. It will loop forever.
     let file_name =
         settings::ERROR_DIR.to_owned() + "/" + &err_code_literal + ".html";
@@ -88,7 +88,7 @@ pub fn gen_error_page(code: status::Status) -> Response {
 }
 /// Response redirection.
 pub fn gen_redirection(location: &str) -> Response {
-    println!("Generating Rediretion to: {}", location);
+    info!("Generating Rediretion to: {}", location);
     let mut res = Response::with((status::Found));
     res.headers.set_raw("Location", vec![location.to_owned().into_bytes()]);
     res

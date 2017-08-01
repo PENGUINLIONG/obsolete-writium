@@ -24,7 +24,7 @@ pub enum Resource {
 /// Some(~) will be returned if the requested resource is successfully read.
 /// None, otherwise.
 fn load_resource(local_path: &Path) -> Option<Vec<u8>> {
-    println!("Looking for file in local storage: {:?}", local_path);
+    info!("Looking for file in local storage: {:?}", local_path);
     if let Ok(mut file) = File::open(&local_path) {
         // Fetch content.
         let mut content = Vec::<u8>::new();
@@ -37,7 +37,7 @@ fn load_resource(local_path: &Path) -> Option<Vec<u8>> {
     }
 }
 fn load_text_resource(local_path: &Path) -> Option<String> {
-    println!("Looking for text file in local storage: {:?}", local_path);
+    info!("Looking for text file in local storage: {:?}", local_path);
     if let Ok(mut file) = File::open(&local_path) {
         // Fetch content.
         let mut content = String::new();
@@ -103,7 +103,6 @@ pub fn get_article(local_path: &Path) -> Option<Resource> {
     }
 }
 fn load_cached_article(local_path: &Path) -> Option<String> {
-    println!("trash");
     match local_path.canonicalize() {
         Ok(name) => {
             let name = match name.file_name().and_then(OsStr::to_str) {
@@ -136,10 +135,10 @@ pub fn get_resource(local_path: &str, in_post: bool) -> Option<Resource> {
             }
             // Look for cached pages first.
             if let Some(cached) = load_cached_article(&path) {
-                println!("Found cache. Use cached page instead.");
+                info!("Found cache. Use cached page instead.");
                 return Some(Article{ content: cached });
             } else {
-                println!("Cache not found. Generate page now.");
+                warn!("Cache not found. Generate page now.");
             }
 
             // Cache not found, generate now.
