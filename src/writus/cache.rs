@@ -44,10 +44,10 @@ impl Cache {
                     Ok(mut file) => {
                         match file.write(filled.as_bytes()) {
                             Ok(_) => info!("Generated cache for: {}", file_name),
-                            Err(_) => warn!("Failed to write to cache file."),
+                            Err(_) => warn!("Failed to generate cache for: {}", file_name),
                         }
                     },
-                    Err(_) => { warn!("Unable to create cache file for {}", file_name); },
+                    Err(_) => warn!("Unable to create cache file for {}", file_name),
                 };
             }
         } else {

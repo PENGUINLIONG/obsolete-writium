@@ -130,7 +130,6 @@ pub fn get_resource(local_path: &Path, in_post: bool) -> Option<Resource> {
             // Ensure requested url is in form of `/foo/` rather than `/foo`. It allows
             // the client to acquire resources in the same directory.
             let path_literal = local_path.to_str().unwrap_or_default();
-            println!("{}", path_literal);
             if !path_literal.ends_with('/') && !path_literal.ends_with('\\') {
                 return Some(AddSlash);
             }

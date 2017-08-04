@@ -26,7 +26,7 @@ fn make_response(req: &Request) -> Response {
     }
     // Only GET method is allowed.
     if req.method != Method::Get {
-        warn!("Invalid HTTP method.");
+        info!("Invalid HTTP method.");
         return gen_error_page(status::MethodNotAllowed);
     }
     // $path is guaranteed to have at least 1 element.
@@ -61,11 +61,11 @@ fn make_response(req: &Request) -> Response {
             if !buf.starts_with(Path::new(&local_dir).canonicalize().unwrap()) {
             // Even you access a file in a published directory from another one
             // will lead to this error.
-            println!("Requested resource is outside of published directory.");
+            info!("Requested resource is outside of published directory.");
             return gen_error(status::Forbidden);
         },
         Err(_) => {
-            println!("Resource cannot be located.");
+            info!("Resource cannot be located.");
             return gen_error(status::NotFound);
         }
     }
