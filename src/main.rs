@@ -4,7 +4,10 @@ extern crate env_logger;
 
 mod writus;
 
+use writus::Writus;
+
 fn main() {
     let _ = env_logger::init();
-    writus::start();
+    let mut instance = Writus::new();
+    instance.process_commands();
 }
