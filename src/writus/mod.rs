@@ -135,7 +135,7 @@ impl Writus {
         loop {
             let mut line = String::new();
             if let Err(_) = input.read_line(&mut line) { break }
-            info!("Received command: {}", &line);
+            info!("Received command: {}", &(line).trim());
             let parts: Vec<&str> = line.split_whitespace().collect();
             let need_exit = match parts.len() {
                 0 => self.interpret_command("", &vec![""]),
