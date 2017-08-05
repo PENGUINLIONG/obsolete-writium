@@ -5,7 +5,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use writus::resource;
-use writus::settings;
+use writus::settings::CONFIGS;
 
 pub struct CacheGuard;
 impl CacheGuard {
@@ -20,7 +20,7 @@ impl CacheGuard {
                 Some(fname) => fname.to_owned(),
                 None => return,
             };
-            cache_path.push(settings::CACHE_DIR);
+            cache_path.push(&CONFIGS.cache_dir);
             cache_path.push(file_name.clone() + &".writuscache");
 
             let mut article_path = entry;
@@ -43,15 +43,15 @@ impl CacheGuard {
         }
 
         info!("Generating cache.");
-        if !Path::new(settings::CACHE_DIR).exists() {
+        if !Path::new(&CONFIGS.cache_dir).exists() {
             info!("Cache directory does not exist. Creating one.");
-            if let Err(_) = fs::create_dir(settings::CACHE_DIR) {
+            if let Err(_) = fs::create_dir(&CONFIGS.cache_dir) {
                 warn!("Unable to create cache directory, pages will be generated just-in-time.");
                 return CacheGuard{};
             }
         }
 
-        match fs::read_dir(settings::POST_DIR) {
+        match fs::read_dir(&CONFIGS.post_dir) {
             Ok(entries) => for entry in entries {
                 if let Ok(en) = entry {
                     gen_article_cache(en.path());
@@ -65,7 +65,7 @@ impl CacheGuard {
 impl Drop for CacheGuard {
     fn drop(&mut self) {
         info!("Removing all cache.");
-        let path = Path::new(settings::CACHE_DIR);
+        let path = Path::new(&CONFIGS.cache_dir);
         if let Err(_) = fs::remove_dir_all(path) {
             warn!("Unable to remove cache.");
         }

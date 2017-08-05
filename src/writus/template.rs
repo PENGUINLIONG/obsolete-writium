@@ -1,6 +1,4 @@
 use std::fs;
-use std::fs::File;
-use std::io::Read;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
@@ -9,7 +7,7 @@ use writus::chrono::Local;
 use writus::markdown;
 
 use writus::resource;
-use writus::settings;
+use writus::settings::CONFIGS;
 
 pub struct TemplateVariables {
     vars: BTreeMap<String, String>,
@@ -37,7 +35,7 @@ impl TemplateVariables {
 
     fn get_fragment(&self, rel_path: &Path) -> Option<String> {
         let mut path = PathBuf::new();
-        path.push(settings::TEMPLATE_DIR);
+        path.push(&CONFIGS.template_dir);
         path.push(rel_path);
         resource::load_text_resource(path.as_path())
             .and_then(|s| self.fill_template(&s))

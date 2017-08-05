@@ -5,8 +5,10 @@ authors = ["PENGUINLIONG <admin@penguinliong.moe>"]
 
 [dependencies]
 chrono = "0.4.0"
+getopts = "0.2"
 iron = "0.5.1"
 json = "0.11.8"
+lazy_static = "0.2"
 markdown = "0.2"
 log = "0.3"
 env_logger = "0.4"

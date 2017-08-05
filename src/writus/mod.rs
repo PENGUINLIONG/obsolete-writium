@@ -1,6 +1,7 @@
 extern crate chrono;
 extern crate iron;
 extern crate json;
+extern crate getopts;
 extern crate markdown;
 
 use std::io;
@@ -13,9 +14,11 @@ use self::iron::status;
 mod cache;
 mod resource;
 mod response_gen;
-mod settings;
 mod template;
 
+pub mod settings;
+
+use self::settings::CONFIGS;
 use self::cache::CacheGuard;
 use self::response_gen::{gen_error, gen_error_page, gen_page, gen_spec,
     gen_redirection};
@@ -25,8 +28,8 @@ fn make_response(req: &Request) -> Response {
     /// Map search directory to local storage directory.
     fn map_search_dir(search_dir: &str) -> Option<&Path> {
         match search_dir {
-            "post" => Some(Path::new(settings::POST_DIR)),
-            "static" => Some(Path::new(settings::STATIC_DIR)),
+            "post" => Some(Path::new(&CONFIGS.post_dir)),
+            "static" => Some(Path::new(&CONFIGS.static_dir)),
             // "error", "template" => No, these are not directly exposed.
             _ => None,
         }
@@ -106,7 +109,7 @@ pub struct Writus {
 }
 impl Writus {
     pub fn new() -> Writus {
-        let mut iron = Iron::new(response).http(settings::HOST_ADDR).unwrap();
+        let mut iron = Iron::new(response).http(&CONFIGS.host_addr).unwrap();
         Writus {
             _writus: _Writus {
                 cache_guard: CacheGuard::new(),

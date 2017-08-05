@@ -5,7 +5,7 @@ use writus::iron::headers::{ContentType};
 use writus::iron::status;
 
 use writus::resource;
-use writus::settings;
+use writus::settings::CONFIGS;
 
 /// Map error code to error literal.
 fn map_error_code(code: status::Status) -> String {
@@ -67,7 +67,7 @@ pub fn gen_error_page(code: status::Status) -> Response {
     info!("Generating error page from status {}.", &err_code_literal);
     // Don't use `find_rsc`. It will loop forever.
     let mut path = PathBuf::new();
-    path.push(settings::ERROR_DIR);
+    path.push(&CONFIGS.error_dir);
     path.push(err_code_literal + ".html");
     match resource::load_text_resource(path.as_path()) {
         Some(s) => {

@@ -7,7 +7,7 @@ use writus::json;
 use writus::json::JsonValue;
 use writus::json::object::Object;
 
-use writus::settings;
+use writus::settings::CONFIGS;
 use writus::template::TemplateVariables;
 
 pub enum Resource {
@@ -104,8 +104,8 @@ pub fn get_article(local_path: &Path) -> Option<Resource> {
     };
 
     let mut template_path = PathBuf::new();
-    template_path.push(settings::TEMPLATE_DIR);
-    template_path.push(settings::POST_TEMPLATE_PATH);
+    template_path.push(&CONFIGS.template_dir);
+    template_path.push(&CONFIGS.post_template_path);
     let template = match load_text_resource(template_path.as_path()) {
         Some(tmpl) => tmpl,
         None => return Some(InvalidArticle),
@@ -123,7 +123,7 @@ fn load_cached_article(local_path: &Path) -> Option<String> {
                 None => return None,
             };
             let mut cache_path = PathBuf::new();
-            cache_path.push(settings::CACHE_DIR);
+            cache_path.push(&CONFIGS.cache_dir);
             cache_path.push(name);
             cache_path.set_extension("writuscache");
             load_text_resource(cache_path.as_path())
