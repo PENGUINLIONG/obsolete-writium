@@ -6,10 +6,9 @@ use std::path::{Path, PathBuf};
 
 use writus::chrono;
 use writus::chrono::Local;
-use writus::json;
-use writus::json::JsonValue::Object;
 use writus::markdown;
 
+use writus::resource;
 use writus::settings;
 
 pub struct TemplateVariables {
@@ -25,16 +24,9 @@ impl TemplateVariables {
         let mut metadata_path = PathBuf::new();
         metadata_path.push(local_path);
         metadata_path.push("metadata.json");
-        let metadata = match File::open(metadata_path.as_path()) {
-            Ok(mut file) => {
-                let mut cont = String::new();
-                if file.read_to_string(&mut cont).is_err() { return None; }
-                match json::parse(&cont) {
-                    Ok(Object(parsed)) => parsed,
-                    _ => return None,
-                }
-            },
-            Err(_) => return None,
+        let metadata = match resource::load_json_object(metadata_path.as_path()) {
+            Some(j) => j,
+            None => return None,
         };
         for (key, val) in metadata.iter() {
             rv.insert(key.to_owned(), val.as_str().unwrap().to_owned());
@@ -47,19 +39,8 @@ impl TemplateVariables {
         let mut path = PathBuf::new();
         path.push(settings::TEMPLATE_DIR);
         path.push(rel_path);
-        match File::open(path.as_path()) {
-            Ok(mut file) => {
-                let mut content = String::new();
-                match file.read_to_string(&mut content) {
-                    Ok(_) => match self.fill_template(&content) {
-                        Some(filled) => Some(filled),
-                        None => None,
-                    },
-                    Err(_) => None,
-                }
-            },
-            Err(_) => None,
-        }
+        resource::load_text_resource(path.as_path())
+            .and_then(|s| self.fill_template(&s))
     }
     fn get_variable(&self, name: &str) -> Option<String> {
         match self.vars.get(&name.to_lowercase()) {
@@ -113,15 +94,9 @@ impl TemplateVariables {
             let mut path = PathBuf::new();
             path.push(local_path);
             path.push("content.md");
-            match File::open(path.as_path()) {
-                Ok(mut file) => {
-                    let mut content = String::new();
-                    match file.read_to_string(&mut content) {
-                        Ok(_) => Some(markdown::to_html(&content)),
-                        Err(_) => None,
-                    }
-                },
-                Err(_) => None,
+            match resource::load_text_resource(path.as_path()) {
+                Some(s) => Some(markdown::to_html(&s)),
+                None => None,
             }
         }
         fn get_create_date(local_path: &Path) -> Option<String> {

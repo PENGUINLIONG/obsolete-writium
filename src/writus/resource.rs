@@ -3,6 +3,10 @@ use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
+use writus::json;
+use writus::json::JsonValue;
+use writus::json::object::Object;
+
 use writus::settings;
 use writus::template::TemplateVariables;
 
@@ -23,7 +27,7 @@ pub enum Resource {
 ///
 /// Some(~) will be returned if the requested resource is successfully read.
 /// None, otherwise.
-fn load_resource(local_path: &Path) -> Option<Vec<u8>> {
+pub fn load_resource(local_path: &Path) -> Option<Vec<u8>> {
     info!("Looking for file in local storage: {:?}", local_path);
     if let Ok(mut file) = File::open(&local_path) {
         // Fetch content.
@@ -36,7 +40,7 @@ fn load_resource(local_path: &Path) -> Option<Vec<u8>> {
         None
     }
 }
-fn load_text_resource(local_path: &Path) -> Option<String> {
+pub fn load_text_resource(local_path: &Path) -> Option<String> {
     info!("Looking for text file in local storage: {:?}", local_path);
     if let Ok(mut file) = File::open(&local_path) {
         // Fetch content.
@@ -47,6 +51,15 @@ fn load_text_resource(local_path: &Path) -> Option<String> {
         }
     } else {
         None
+    }
+}
+pub fn load_json_object(local_path: &Path) -> Option<Object> {
+    match load_text_resource(local_path) {
+        Some(s) => match json::parse(&s) {
+            Ok(JsonValue::Object(obj)) => Some(obj),
+            _ => None,
+        },
+        None => None,
     }
 }
 

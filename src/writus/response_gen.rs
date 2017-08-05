@@ -1,10 +1,10 @@
-use std::fs::File;
-use std::io::{Read};
+use std::path::PathBuf;
 
 use writus::iron::prelude::*;
 use writus::iron::headers::{ContentType};
 use writus::iron::status;
 
+use writus::resource;
 use writus::settings;
 
 /// Map error code to error literal.
@@ -64,26 +64,18 @@ pub fn gen_error(code: status::Status) -> Response {
 /// Response error page if it exists. otherwise, response with error code.
 pub fn gen_error_page(code: status::Status) -> Response {
     let err_code_literal = map_error_code(code);
-    info!("Generating error page from status {}.", err_code_literal);
+    info!("Generating error page from status {}.", &err_code_literal);
     // Don't use `find_rsc`. It will loop forever.
-    let file_name =
-        settings::ERROR_DIR.to_owned() + "/" + &err_code_literal + ".html";
-    match File::open(file_name) {
-        Ok(mut file) => {
-            let mut err_page = String::new();
-            match file.read_to_string(&mut err_page) {
-                // Successfully read.
-                Ok(_) => {
-                    let mut res = Response::with((code, err_page));
-                    res.headers.set(ContentType::html());
-                    res
-                },
-                // Cannot read error page file.
-                Err(_) => gen_error(code),
-            }
+    let mut path = PathBuf::new();
+    path.push(settings::ERROR_DIR);
+    path.push(err_code_literal + ".html");
+    match resource::load_text_resource(path.as_path()) {
+        Some(s) => {
+            let mut res = Response::with((code, s));
+            res.headers.set(ContentType::html());
+            res
         },
-        // Cannot open error page file. Response with the error code.
-        Err(_) => gen_error(code),
+        None => gen_error(code),
     }
 }
 /// Response redirection.
