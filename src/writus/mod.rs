@@ -11,7 +11,6 @@ use self::iron::prelude::*;
 use self::iron::method::Method;
 use self::iron::status;
 
-mod cache;
 mod resource;
 mod response_gen;
 mod template;
@@ -19,7 +18,6 @@ mod template;
 pub mod settings;
 
 use self::settings::CONFIGS;
-use self::cache::CacheGuard;
 use self::response_gen::{gen_error, gen_error_page, gen_page, gen_spec,
     gen_redirection};
 
@@ -100,7 +98,6 @@ fn response(req: &mut Request) -> IronResult<Response> {
 }
 
 struct _Writus {
-    cache_guard: CacheGuard,
     close_iron: Box<FnMut()>,
 }
 
@@ -110,9 +107,9 @@ pub struct Writus {
 impl Writus {
     pub fn new() -> Writus {
         let mut iron = Iron::new(response).http(&CONFIGS.host_addr).unwrap();
+        resource::gen_cache();
         Writus {
             _writus: _Writus {
-                cache_guard: CacheGuard::new(),
                 close_iron: Box::new(move || { let _ = iron.close(); }),
             },
         }
@@ -125,7 +122,8 @@ impl Writus {
                 return true;
             },
             "recache" => {
-                self._writus.cache_guard = CacheGuard::new();
+                resource::remove_cache();
+                resource::gen_cache();
             },
             _ => error!("Unknown command."),
         }
@@ -151,6 +149,7 @@ impl Writus {
 }
 impl Drop for Writus {
      fn drop(&mut self) {
+        resource::remove_cache();
         (self._writus.close_iron)();
      }
 }

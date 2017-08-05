@@ -1,6 +1,7 @@
 use std::ffi::OsStr;
+use std::fs;
 use std::fs::File;
-use std::io::Read;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
 use writus::json;
@@ -22,6 +23,10 @@ pub enum Resource {
     InvalidArticle,
     AddSlash,
 }
+
+//
+// File input utilities.
+//
 
 /// Load resource from local storage.
 ///
@@ -62,6 +67,72 @@ pub fn load_json_object(local_path: &Path) -> Option<Object> {
         None => None,
     }
 }
+
+//
+// Cache management.
+//
+
+pub fn gen_cache() {
+    fn gen_article_cache(entry: PathBuf) {
+        // Get metadata of each directory.
+        if !entry.is_dir() { return }
+
+        let mut cache_path = PathBuf::new();
+        let file_name = match entry.file_name()
+            .and_then(OsStr::to_str) {
+            Some(fname) => fname.to_owned(),
+            None => return,
+        };
+        cache_path.push(&CONFIGS.cache_dir);
+        cache_path.push(file_name.clone() + &".writuscache");
+
+        let mut article_path = entry;
+        article_path.push("");
+        let filled = match get_article(article_path.as_path()) {
+            Some(Resource::Article { content }) => content,
+            _ => return,
+        };
+        // In case there is a dot in the file name. set_extension() is
+        // not used.
+        match File::create(&cache_path) {
+            Ok(mut file) => {
+                match file.write(filled.as_bytes()) {
+                    Ok(_) => info!("Generated cache: {}", &file_name),
+                    Err(_) => warn!("Failed to generate cache: {}", &file_name),
+                }
+            },
+            Err(_) => warn!("Unable to create cache file: {}", &file_name),
+        };
+    }
+
+    info!("Generating cache.");
+    if !Path::new(&CONFIGS.cache_dir).exists() {
+        info!("Cache directory does not exist. Creating one.");
+        if let Err(_) = fs::create_dir(&CONFIGS.cache_dir) {
+            warn!("Unable to create cache directory, pages will be generated just-in-time.");
+        }
+    }
+
+    match fs::read_dir(&CONFIGS.post_dir) {
+        Ok(entries) => for entry in entries {
+            if let Ok(en) = entry {
+                gen_article_cache(en.path());
+            }
+        },
+        _ => warn!("Unable to read from post directory."),
+    }
+}
+pub fn remove_cache() {
+    info!("Removing all cache.");
+    let path = Path::new(&CONFIGS.cache_dir);
+    if let Err(_) = fs::remove_dir_all(path) {
+        warn!("Unable to remove cache.");
+    }
+}
+
+//
+// High Level resource access.
+//
 
 /// Get file extension in path. None is returned if there isn't one.
 fn deduce_type_by_ext(local_path: &Path) -> Option<&str> {
