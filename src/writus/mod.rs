@@ -24,10 +24,10 @@ use self::response_gen::{gen_error, gen_error_page, gen_page, gen_spec,
 /// Response to incoming requests.
 fn make_response(req: &Request) -> Response {
     /// Map search directory to local storage directory.
-    fn map_search_dir(search_dir: &str) -> Option<&Path> {
+    fn map_search_dir(search_dir: &str) -> Option<&str> {
         match search_dir {
-            "post" => Some(Path::new(&CONFIGS.post_dir)),
-            "static" => Some(Path::new(&CONFIGS.static_dir)),
+            "post" => Some(&CONFIGS.post_dir),
+            "static" => Some(&CONFIGS.static_dir),
             // "error", "template" => No, these are not directly exposed.
             _ => None,
         }
@@ -43,24 +43,22 @@ fn make_response(req: &Request) -> Response {
     // Assign different search directory for different root. If the requested
     // thing doesn't exist, ignore with 404 returned.
     let search_dir = path.get(0).unwrap().to_owned();
-    if search_dir == "" {
-        info!("Empty search directory, there will be a index page in the future.");
-        return gen_error_page(status::NotFound);
-    }
-    info!("Search directory is {}.", search_dir);
-    let local_dir = match map_search_dir(&search_dir) {
-        Some(dir) => dir,
+    // Read data from storage.
+    let mut local_path = PathBuf::new();
+    let (local_dir, path) = match map_search_dir(&search_dir) {
+        Some(dir) => {
+            info!("Search directory is {}.", search_dir);
+            (dir.to_owned(), path[1..].join("/"))
+        },
         None => {
-            info!("Search directory not exposed.");
-            return gen_error_page(status::Forbidden);
+            info!("Search directory is root.", );
+            (CONFIGS.root_dir.to_owned(), path.join("/"))
         },
     };
-    // Read data from storage.
+    local_path.push(&local_dir);
+    local_path.push(&path);
     use writus::resource::Resource::{Article, InvalidArticle,
         Material, InvalidMaterial, AddSlash};
-    let path = &path[1..].join("/");
-    let mut local_path = PathBuf::from(&local_dir);
-    local_path.push(&path);
     // Make sure requested file is under published directory.
     match local_path.canonicalize() {
         Ok(buf) =>

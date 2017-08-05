@@ -18,6 +18,8 @@ pub struct WritusConfigs {
     pub template_dir: String,
     /// The directory where static resources located.
     pub static_dir: String,
+    /// The directory where the root path directly mapped to.
+    pub root_dir: String,
 
     /// The directory where cache is output.
     pub cache_dir: String,
@@ -34,6 +36,7 @@ impl WritusConfigs {
             error_dir: String::new(),
             template_dir: String::new(),
             static_dir: String::new(),
+            root_dir: String::new(),
             
             cache_dir: String::new(),
             
@@ -61,6 +64,7 @@ impl WritusConfigs {
                 "errorDir" => configs.error_dir = val,
                 "templateDir" => configs.template_dir = val,
                 "staticDir" => configs.static_dir = val,
+                "rootDir" => configs.root_dir = val,
                 
                 "cacheDir" => configs.cache_dir = val,
                 
@@ -89,7 +93,7 @@ impl WritusConfigs {
                         for (key, val) in obj.iter() {
                             if fill_setting(&mut rv, &key, &val.to_string()) { count += 1 }
                         }
-                        if count < 7 {
+                        if count < 8 {
                             error!("Configuration file is not complete.");
                             exit(1);
                         }

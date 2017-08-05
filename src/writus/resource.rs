@@ -149,6 +149,7 @@ fn deduce_type_by_ext(local_path: &Path) -> Option<&str> {
             "jpeg" => Some("image/jpeg"),
             "png" => Some("image/png"),
             "gif" => Some("image/gif"),
+            "ico" => Some("image/x-icon"),
             _ => None,
         }
     }
