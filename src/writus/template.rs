@@ -1,6 +1,9 @@
-use std::fs;
 use std::collections::BTreeMap;
+use std::fs::metadata;
+use std::fs::Metadata;
+use std::io;
 use std::path::{Path, PathBuf};
+use std::time::SystemTime;
 
 use writus::chrono;
 use writus::chrono::Utc;
@@ -98,14 +101,15 @@ impl TemplateVariables {
                 None => None,
             }
         }
-        fn get_create_date(local_path: &Path) -> Option<String> {
+        fn get_meta_dt<F: FnOnce(&Metadata) -> io::Result<SystemTime>>(local_path: &Path, dt_fn: F)
+            -> Option<String> {
             let mut path = PathBuf::new();
             path.push(local_path);
             path.push("content.md");
-            match fs::metadata(local_path) {
-                Ok(file_meta) => match file_meta.created() {
+            match metadata(local_path) {
+                Ok(file_meta) => match (dt_fn)(&file_meta) {
                     Ok(sys_time) => Some(chrono::DateTime::<Utc>::from(sys_time)
-                            .to_rfc3339()),
+                        .to_rfc3339()),
                     Err(_) => None,
                 },
                 Err(_) => None,
@@ -122,10 +126,20 @@ impl TemplateVariables {
             self.insert("content".to_owned(), get_content(local_path)
                 .unwrap_or_default());
         }
-        if !self.contains_key("pub-date") {
-            self.insert("pub-date".to_owned(), get_create_date(local_path)
-                .unwrap_or_default());
+        if !self.contains_key("published") {
+            self.insert("published".to_owned(),
+                get_meta_dt(local_path, Metadata::created)
+                    .unwrap_or_default()
+            );
         }
+        self.insert("created".to_owned(),
+            get_meta_dt(local_path, Metadata::created)
+                .unwrap_or_default()
+        );
+        self.insert("modified".to_owned(),
+            get_meta_dt(local_path, Metadata::modified)
+                .unwrap_or_default()
+        );
     }
 
     #[inline]
