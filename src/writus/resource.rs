@@ -1,8 +1,11 @@
+use std::collections::BTreeMap;
 use std::ffi::OsStr;
 use std::fs;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
+
+use writus::chrono::{DateTime, Utc};
 
 use writus::json;
 use writus::json::JsonValue;
@@ -27,6 +30,8 @@ pub enum Resource {
 //
 // File input utilities.
 //
+
+pub type CachedAriticles = BTreeMap<DateTime<Utc>, String>;
 
 /// Load resource from local storage.
 ///
@@ -72,7 +77,7 @@ pub fn load_json_object(local_path: &Path) -> Option<Object> {
 // Cache management.
 //
 
-pub fn gen_cache() {
+pub fn gen_cache() -> CachedAriticles {
     fn gen_article_cache(entry: PathBuf) {
         // Get metadata of each directory.
         if !entry.is_dir() { return }
@@ -104,6 +109,31 @@ pub fn gen_cache() {
             Err(_) => warn!("Unable to create cache file: {}", &file_name),
         };
     }
+    fn get_pubdate(entry: &Path) -> Option<DateTime<Utc>> {
+        let mut metadata_path = PathBuf::new();
+        metadata_path.push(&entry);
+        metadata_path.push("metadata.json");
+        if let Some(obj) = load_json_object(metadata_path.as_path()) {
+            if let Some(pd) = obj.get("pubDate") {
+                if let Ok(parsed) =
+                    DateTime::parse_from_rfc3339(&pd.to_string()) {
+                    return Some(DateTime::from_utc(parsed.naive_utc(), Utc));
+                }
+            }
+        }
+        // TODO: Loop over and get time and sort. Ignore all non-timed articles.
+        let mut content_path = PathBuf::new();
+        content_path.push(&entry);
+        content_path.push("content.md");
+        match fs::metadata(content_path) {
+            Ok(file_meta) => match file_meta.created() {
+                Ok(sys_time) =>
+                    Some(DateTime::<Utc>::from(sys_time)),
+                Err(_) => None,
+            },
+            Err(_) => None,
+        }
+    }
 
     info!("Generating cache.");
     if !Path::new(&CONFIGS.cache_dir).exists() {
@@ -113,14 +143,23 @@ pub fn gen_cache() {
         }
     }
 
+    let mut map: CachedAriticles = BTreeMap::new();
     match fs::read_dir(&CONFIGS.post_dir) {
         Ok(entries) => for entry in entries {
             if let Ok(en) = entry {
                 gen_article_cache(en.path());
+                let article_pub_date = get_pubdate(en.path().as_path());
+                let article_name = en.file_name().into_string();
+                if article_pub_date.is_some() &&
+                    article_name.is_ok() {
+                    map.insert(article_pub_date.unwrap(),
+                        article_name.unwrap());
+                }
             }
         },
         _ => warn!("Unable to read from post directory."),
     }
+    map
 }
 pub fn remove_cache() {
     info!("Removing all cache.");
@@ -135,7 +174,7 @@ pub fn remove_cache() {
 //
 
 /// Get file extension in path. None is returned if there isn't one.
-fn deduce_type_by_ext(local_path: &Path) -> Option<&str> {
+pub fn deduce_type_by_ext(local_path: &Path) -> Option<&str> {
     /// Map file extension to media type.
     fn map_ext(ext: &str) -> Option<&str> {
         match ext {
@@ -170,10 +209,9 @@ pub fn get_material(local_path: &Path, media_type: &str) -> Option<Resource> {
 pub fn get_article(local_path: &Path) -> Option<Resource> {
     use self::Resource::{Article, InvalidArticle};
 
-    let vars = match TemplateVariables::read_metadata(local_path) {
-        Some(v) => v,
-        None => return Some(InvalidArticle),
-    };
+    let mut vars = TemplateVariables::new();
+    vars.read_from_metadata(local_path);
+    vars.complete_with_default(local_path);
 
     let mut template_path = PathBuf::new();
     template_path.push(&CONFIGS.template_dir);
@@ -204,16 +242,18 @@ fn load_cached_article(local_path: &Path) -> Option<String> {
     }
 }
 /// Get resource file.
-pub fn get_resource(local_path: &Path, in_post: bool) -> Option<Resource> {
+pub fn get_resource(local_path: &Path, can_be_article: bool)
+    -> Option<Resource> {
     use self::Resource::{AddSlash, Article};
 
     match deduce_type_by_ext(local_path) {
         // Extension present, return material.
         Some(media_type) => get_material(&local_path, media_type),
         // Extension absent, return article.
-        None => if in_post { // Article can only be in `./post`.
-            // Ensure requested url is in form of `/foo/` rather than `/foo`. It allows
-            // the client to acquire resources in the same directory.
+        // Article can only be the index page or in `./post`.
+        None => if can_be_article {
+            // Ensure requested url is in form of `/foo/` rather than `/foo`. It
+            // allows the client to acquire resources in the same directory.
             let path_literal = local_path.to_str().unwrap_or_default();
             if !path_literal.ends_with('/') && !path_literal.ends_with('\\') {
                 return Some(AddSlash);
@@ -233,4 +273,31 @@ pub fn get_resource(local_path: &Path, in_post: bool) -> Option<Resource> {
             None
         },
     }
+}
+
+pub fn get_index_page(digest: String, page: u32) -> Option<Resource> {
+    fn make_pagination(page: u32) -> Option<String> {
+        let mut pagination_template_path = PathBuf::new();
+        pagination_template_path.push(&CONFIGS.template_dir);
+        pagination_template_path.push(&CONFIGS.pagination_template_path);
+        let pagination_template =
+            load_text_resource(pagination_template_path.as_path())
+                .unwrap_or_default();
+
+        let mut vars = TemplateVariables::new();
+        vars.insert("page".to_owned(), page.to_string());
+        vars.fill_template(&pagination_template)
+    }
+    let mut index_template_path = PathBuf::new();
+    index_template_path.push(&CONFIGS.template_dir);
+    index_template_path.push(&CONFIGS.index_template_path);
+    let index_template = load_text_resource(index_template_path.as_path())
+        .unwrap_or_default();
+
+    let mut vars = TemplateVariables::new();
+    vars.insert("digests".to_owned(), digest);
+    vars.insert("pagination".to_owned(), make_pagination(page).unwrap_or_default());
+    if let Some(filled) = vars.fill_template(&index_template) {
+        Some(Resource::Article{ content: filled })
+    } else { None }
 }

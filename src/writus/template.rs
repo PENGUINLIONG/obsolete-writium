@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use writus::chrono;
-use writus::chrono::Local;
+use writus::chrono::Utc;
 use writus::markdown;
 
 use writus::resource;
@@ -14,23 +14,22 @@ pub struct TemplateVariables {
 }
 
 impl TemplateVariables {
-    pub fn read_metadata(local_path: &Path) -> Option<TemplateVariables> {
-        let mut rv = TemplateVariables {
+    pub fn new() -> TemplateVariables {
+        TemplateVariables {
             vars: BTreeMap::new(),
-        };
-
+        }
+    }
+    pub fn read_from_metadata(&mut self, local_path: &Path) {
         let mut metadata_path = PathBuf::new();
         metadata_path.push(local_path);
         metadata_path.push("metadata.json");
         let metadata = match resource::load_json_object(metadata_path.as_path()) {
             Some(j) => j,
-            None => return None,
+            None => return,
         };
         for (key, val) in metadata.iter() {
-            rv.insert(key.to_owned(), val.as_str().unwrap().to_owned());
+            self.insert(key.to_owned(), val.as_str().unwrap().to_owned());
         }
-        rv.complete_with_default(local_path);
-        Some(rv)
     }
 
     fn get_fragment(&self, rel_path: &Path) -> Option<String> {
@@ -41,7 +40,7 @@ impl TemplateVariables {
             .and_then(|s| self.fill_template(&s))
     }
     fn get_variable(&self, name: &str) -> Option<String> {
-        match self.vars.get(&name.to_lowercase()) {
+        match self.vars.get(&name.to_owned()) {
             Some(var) => Some(var.to_owned()),
             None => None,
         }
@@ -70,12 +69,14 @@ impl TemplateVariables {
                             // Insert fragment.
                             let frag_path = parts[1].trim();
                             info!("Inline fragment: {}", frag_path);
-                            rv += &self.get_fragment(Path::new(frag_path)).unwrap_or_default();
+                            rv += &self.get_fragment(Path::new(frag_path))
+                                .unwrap_or_default();
                         } else if parts[0] == "var" {
                             // Insert variable.
                             let var_name = parts[1].trim();
                             info!("Insert variable: {}", var_name);
-                            rv += &self.get_variable(var_name).unwrap_or_default();
+                            rv += &self.get_variable(var_name)
+                                .unwrap_or_default();
                         }
                     }
                     // Ignore unknown processing instructions.
@@ -87,7 +88,7 @@ impl TemplateVariables {
     }
 
     /// Complete template variable map with default value.
-    fn complete_with_default(&mut self, local_path: &Path) {
+    pub fn complete_with_default(&mut self, local_path: &Path) {
         fn get_content(local_path: &Path) -> Option<String> {
             let mut path = PathBuf::new();
             path.push(local_path);
@@ -103,9 +104,8 @@ impl TemplateVariables {
             path.push("content.md");
             match fs::metadata(local_path) {
                 Ok(file_meta) => match file_meta.created() {
-                    Ok(sys_time) =>
-                        Some(chrono::DateTime::<Local>::from(sys_time)
-                            .format("%Y-%m-%d").to_string()),
+                    Ok(sys_time) => Some(chrono::DateTime::<Utc>::from(sys_time)
+                            .to_rfc3339()),
                     Err(_) => None,
                 },
                 Err(_) => None,
@@ -129,11 +129,11 @@ impl TemplateVariables {
     }
 
     #[inline]
-    fn contains_key(&self, key: &str) -> bool {
+    pub fn contains_key(&self, key: &str) -> bool {
         self.vars.contains_key(key)
     }
     #[inline]
-    fn insert(&mut self, key: String, value: String) -> Option<String> {
+    pub fn insert(&mut self, key: String, value: String) -> Option<String> {
         self.vars.insert(key, value)
     }
 }

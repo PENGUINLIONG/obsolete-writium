@@ -24,8 +24,20 @@ pub struct WritusConfigs {
     /// The directory where cache is output.
     pub cache_dir: String,
 
+    /// Digest template file path in $TEMPLATE_DIR. MUST NOT have slash as
+    /// prefix.
+    pub digest_template_path: String,
+    /// Index template file path in $TEMPLATE_DIR. MUST NOT have slash as
+    /// prefix.
+    pub index_template_path: String,
+    /// Pagination template file path in $TEMPLATE_DIR. MUST NOT have slash as
+    /// prefix.
+    pub pagination_template_path: String,
     /// Post template file path in $TEMPLATE_DIR. MUST NOT have slash as prefix.
     pub post_template_path: String,
+
+    /// Number of digests shown per page on index page.
+    pub digests_per_page: u32,
 }
 impl WritusConfigs {
     fn new() -> WritusConfigs {
@@ -40,7 +52,12 @@ impl WritusConfigs {
             
             cache_dir: String::new(),
             
+            digest_template_path: String::new(),
+            index_template_path: String::new(),
+            pagination_template_path: String::new(),
             post_template_path: String::new(),
+
+            digests_per_page: 0,
         }
     }
     pub fn from_args() -> WritusConfigs {
@@ -68,7 +85,15 @@ impl WritusConfigs {
                 
                 "cacheDir" => configs.cache_dir = val,
                 
+                "digestTemplatePath" => configs.digest_template_path = val,
+                "indexTemplatePath" => configs.index_template_path = val,
+                "paginationTemplatePath" => configs.pagination_template_path = val,
                 "postTemplatePath" => configs.post_template_path = val,
+
+                "digestsPerPage" => configs.digests_per_page = match val.parse::<u32>() {
+                    Ok(v) => v,
+                    Err(_) => return false,
+                },
                 _ => return false,
             }
             true
@@ -93,7 +118,7 @@ impl WritusConfigs {
                         for (key, val) in obj.iter() {
                             if fill_setting(&mut rv, &key, &val.to_string()) { count += 1 }
                         }
-                        if count < 8 {
+                        if count < 12 {
                             error!("Configuration file is not complete.");
                             exit(1);
                         }
