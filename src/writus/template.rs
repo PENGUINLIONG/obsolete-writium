@@ -116,15 +116,13 @@ impl TemplateVariables {
             }
         }
 
+        // Can be overrided by user.
+
         if !self.contains_key("author") {
             self.insert("author".to_owned(), "Akari".to_owned());
         }
         if !self.contains_key("title") {
             self.insert("title".to_owned(), "Untitled".to_owned());
-        }
-        if !self.contains_key("content") {
-            self.insert("content".to_owned(), get_content(local_path)
-                .unwrap_or_default());
         }
         if !self.contains_key("published") {
             self.insert("published".to_owned(),
@@ -132,6 +130,11 @@ impl TemplateVariables {
                     .unwrap_or_default()
             );
         }
+
+        // Cannot be overrided by user.
+
+        self.insert("content".to_owned(), get_content(local_path)
+            .unwrap_or_default());
         self.insert("created".to_owned(),
             get_meta_dt(local_path, Metadata::created)
                 .unwrap_or_default()
