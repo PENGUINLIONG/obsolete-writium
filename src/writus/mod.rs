@@ -87,6 +87,8 @@ impl WritusServer {
     /// 404.
     fn make_response_for_dir(&self, local_dir: String, path: String,
         in_post_dir: bool) -> Response {
+        // Access to directory-root is not allowed.
+        if path.is_empty() { return gen_error_page(status::Forbidden); }
         let local_path = path_buf![&local_dir, &path];
         // Make sure requested file is under published directory.
         match local_path.canonicalize() {
