@@ -14,5 +14,12 @@ users. The `cache` directory will be created in-time and removed during
 termination, or re-cache. It is important to let the `cache` directory not to be
 accessed by other programs. Writus will actively generate cache only once. If
 `cache`, or its content, was removed, Writus will try generating requested
-article in-time rather than re-caching the requested file. If the cache file was modified, temporarily, Writus will respond with the modified version of cache. To re-cache, input
-`recache` in Writus CUI.
+article in-time rather than re-caching the requested file. If the cache file was
+modified, temporarily, Writus will respond with the modified version of cache.
+To re-cache, run command `recache` in Writus CUI.
+
+## File Types
+
+Writus only allow a smll number of types of files to be sent. Currently, it's a
+fixed list and you can find it in `./src/writus/resource.rs`. It will become
+configurable soon.

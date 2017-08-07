@@ -28,18 +28,19 @@ pub struct WritusConfigs {
     pub cache_dir: String,
 
     /// Digest template file path in $TEMPLATE_DIR. MUST NOT have slash as
-    /// prefix.
+    /// prefix. [default: digest.html]
     pub digest_template_path: String,
     /// Index template file path in $TEMPLATE_DIR. MUST NOT have slash as
-    /// prefix.
+    /// prefix. [default: index.html]
     pub index_template_path: String,
     /// Pagination template file path in $TEMPLATE_DIR. MUST NOT have slash as
-    /// prefix.
+    /// prefix. [default: pagination.html]
     pub pagination_template_path: String,
     /// Post template file path in $TEMPLATE_DIR. MUST NOT have slash as prefix.
+    /// [default: post.html]
     pub post_template_path: String,
 
-    /// Number of digests shown per page on index page.
+    /// Number of digests shown per page on index page. [default: 5]
     pub digests_per_page: u32,
 }
 impl WritusConfigs {
