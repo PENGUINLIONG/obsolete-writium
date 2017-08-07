@@ -11,6 +11,8 @@ use writus::json;
 use writus::json::JsonValue;
 use writus::json::object::Object;
 
+use writus::markdown;
+
 use writus::settings::CONFIGS;
 use writus::template::TemplateVariables;
 
@@ -31,7 +33,7 @@ pub enum Resource {
 // File input utilities.
 //
 
-pub type CachedAriticles = BTreeMap<DateTime<Utc>, String>;
+pub type CachedArticles = BTreeMap<DateTime<Utc>, String>;
 
 /// Load resource from local storage.
 ///
@@ -73,82 +75,183 @@ pub fn load_json_object(local_path: &Path) -> Option<Object> {
     }
 }
 
+/// Ensure the existance of a directory. If needed, any intermediate directory
+/// will be created as well.
+pub fn ensure_dir(dir_path: &Path) {
+    if !dir_path.exists() {
+        info!("Directory {} does not exist. Creating one.", dir_path.to_string_lossy());
+        if let Err(_) = fs::create_dir_all(dir_path) {
+            warn!("Unable to create directory, pages will be generated just-in-time.");
+        }
+    }
+}
+
 //
-// Cache management.
+// Article utilities.
 //
 
-pub fn gen_cache() -> CachedAriticles {
-    fn gen_article_cache(entry: &Path) {
+/// Get template variables from `metadata.json` and filesystem metadata.
+fn get_template_vars(local_path: &Path) -> TemplateVariables {
+    let mut vars = TemplateVariables::new();
+    vars.read_from_metadata(local_path);
+    vars.complete_with_default(local_path);
+    vars
+}
+/// Generate article with provided template variables.
+fn gen_article_given_vars(local_path: &Path, vars: &mut TemplateVariables) -> Option<Resource> {
+    use self::Resource::{Article, InvalidArticle};
+    fn get_content(local_path: &Path) -> Option<String> {
+        let path = path_buf![local_path, "content.md"];
+        match load_text_resource(path.as_path()) {
+            Some(s) => Some(markdown::to_html(&s)),
+            None => None,
+        }
+    }
+
+    let template_path =
+        path_buf![&CONFIGS.template_dir, &CONFIGS.post_template_path];
+    let template = match load_text_resource(template_path.as_path()) {
+        Some(tmpl) => tmpl,
+        None => return Some(InvalidArticle),
+    };
+    vars.insert("content".to_owned(), get_content(local_path)
+        .unwrap_or_default());
+    let filled_opt = vars.fill_template(&template);
+    vars.remove("content");
+    match filled_opt {
+        Some(filled) => Some(Article{content: filled}),
+        None => Some(InvalidArticle),
+    }
+}
+
+//
+// Index utilities.
+//
+
+/// Generate digests for a certain page.
+fn gen_digests(cached: &CachedArticles, page: u32) -> String {
+    let template_path =
+        path_buf![&CONFIGS.template_dir, &CONFIGS.digest_template_path];
+    let template = load_text_resource(&template_path)
+        .unwrap_or_default();
+
+    let mut vars = TemplateVariables::new();
+    let mut digest_collected = String::new();
+    for (_, article_name) in cached.iter()
+        // Page number is 1-based, so minus 1.
+        .skip(((page - 1) * &CONFIGS.digests_per_page) as usize)
+        .take(CONFIGS.digests_per_page as usize) {
+        let article_path =
+                path_buf![&CONFIGS.post_dir, &article_name, "content.md"];
+        if let Some(content) = load_text_resource(&article_path) {
+            let digest_parts: Vec<&str> = content.lines()
+                .filter(|s: &&str| !s.trim_left().is_empty())
+                .take(2)
+                .collect();
+            let digest =
+                markdown::to_html(&(digest_parts.join("\r\n\r\n")));
+            vars.insert("path".to_owned(),
+                format!("/post/{}/", &article_name));
+            vars.insert("digest".to_owned(), digest);
+            digest_collected += &vars.fill_template(&template)
+                .unwrap_or_default();
+        }
+    }
+    digest_collected
+}
+/// Generate pagination for certain page.
+fn gen_pagination(page: u32) -> Option<String> {
+    let pagination_template_path =
+        path_buf![&CONFIGS.template_dir, &CONFIGS.pagination_template_path];
+    let pagination_template =
+        load_text_resource(&pagination_template_path).unwrap_or_default();
+
+    let mut vars = TemplateVariables::new();
+    vars.insert("page".to_owned(), page.to_string());
+    vars.fill_template(&pagination_template)
+}
+/// Generate given page of index with given digest. 
+fn gen_index_page_given_digest(digests: String, page: u32)
+    -> Option<String> {
+    let index_template_path =
+        path_buf![&CONFIGS.template_dir, &CONFIGS.index_template_path];
+    let index_template = load_text_resource(&index_template_path)
+        .unwrap_or_default();
+
+    let mut vars = TemplateVariables::new();
+    vars.insert("digests".to_owned(), digests);
+    vars.insert("pagination".to_owned(),
+        gen_pagination(page).unwrap_or_default());
+    if let Some(filled) = vars.fill_template(&index_template) {
+        Some(filled)
+    } else {
+        None
+    }
+}
+
+//
+// Cache generation.
+//
+
+/// Generate cache for articles.
+fn gen_article_cache() -> CachedArticles {
+    fn gen_single_cache(entry: &Path) -> Option<(DateTime<Utc>, String)> {
+        fn parse_date_time(vars: &TemplateVariables, key: &str) -> Option<DateTime<Utc>> {
+            if let Some(pd) = vars.get(key) {
+                if let Ok(parsed) =
+                    DateTime::parse_from_rfc3339(&pd.to_string()) {
+                    return Some(DateTime::from_utc(parsed.naive_utc(), Utc));
+                }
+            }
+            None
+        }
         // Get metadata of each directory.
-        if !entry.is_dir() { return }
+        if !entry.is_dir() { return None; }
 
-        let file_name = match entry.file_name()
-            .and_then(OsStr::to_str) {
+        let file_name = match entry.file_name().and_then(OsStr::to_str) {
             Some(fname) => fname.to_owned(),
-            None => return,
+            None => return None,
         };
-        let cache_path =
-            path_buf![&CONFIGS.cache_dir, file_name.clone() + &".writuscache"];
+        let mut cache_path =
+            path_buf![&CONFIGS.cache_dir, "post", &file_name];
+        cache_path.set_extension("writuscache");
 
         let article_path = path_buf![entry, ""];
-        let filled = match get_article(article_path.as_path()) {
+        let mut vars = get_template_vars(&article_path);
+        let filled = match gen_article_given_vars(&article_path, &mut vars) {
             Some(Resource::Article { content }) => content,
-            _ => return,
+            _ => return None,
         };
         // In case there is a dot in the file name. set_extension() is
         // not used.
         match File::create(&cache_path) {
             Ok(mut file) => {
                 match file.write(filled.as_bytes()) {
-                    Ok(_) => info!("Generated cache: {}", &file_name),
+                    Ok(_) => {
+                        info!("Generated cache: {}", &file_name);
+                        match parse_date_time(&vars, "published") {
+                            Some(dt) => return Some((dt, file_name)),
+                            None => warn!("...But failed to index it."),
+                        }
+                    },
                     Err(_) => warn!("Failed to generate cache: {}", &file_name),
                 }
             },
             Err(_) => warn!("Unable to create cache file: {}", &file_name),
         };
-    }
-    fn get_pubdate(entry: &Path) -> Option<DateTime<Utc>> {
-        let metadata_path = path_buf![entry, "metadata.json"];
-        if let Some(obj) = load_json_object(metadata_path.as_path()) {
-            if let Some(pd) = obj.get("pubDate") {
-                if let Ok(parsed) =
-                    DateTime::parse_from_rfc3339(&pd.to_string()) {
-                    return Some(DateTime::from_utc(parsed.naive_utc(), Utc));
-                }
-            }
-        }
-        // TODO: Loop over and get time and sort. Ignore all non-timed articles.
-        let content_path = path_buf![entry, "content.md"];
-        match fs::metadata(content_path) {
-            Ok(file_meta) => match file_meta.created() {
-                Ok(sys_time) =>
-                    Some(DateTime::<Utc>::from(sys_time)),
-                Err(_) => None,
-            },
-            Err(_) => None,
-        }
+        None
     }
 
-    info!("Generating cache.");
-    if !Path::new(&CONFIGS.cache_dir).exists() {
-        info!("Cache directory does not exist. Creating one.");
-        if let Err(_) = fs::create_dir(&CONFIGS.cache_dir) {
-            warn!("Unable to create cache directory, pages will be generated just-in-time.");
-        }
-    }
-
-    let mut map: CachedAriticles = BTreeMap::new();
+    info!("Generating cache for articles.");
+    ensure_dir(Path::new(&CONFIGS.cache_dir));
+    // Generate cache for posts.
+    ensure_dir(&path_buf![&CONFIGS.cache_dir, "post"]);
+    let mut map: CachedArticles = BTreeMap::new();
     match fs::read_dir(&CONFIGS.post_dir) {
         Ok(entries) => for entry in entries {
             if let Ok(en) = entry {
-                let path = en.path();
-                gen_article_cache(&path);
-                let article_pub_date = get_pubdate(&path);
-                let article_name = en.file_name().into_string();
-                if article_pub_date.is_some() &&
-                    article_name.is_ok() {
-                    map.insert(article_pub_date.unwrap(),
-                        article_name.unwrap());
+                if let Some((dt, name)) = gen_single_cache(&en.path()) {
+                    map.insert(dt, name);
                 }
             }
         },
@@ -156,6 +259,65 @@ pub fn gen_cache() -> CachedAriticles {
     }
     map
 }
+/// Generate cache for the given page of index.
+fn gen_index_page_cache(cached: &CachedArticles, page: u32) {
+    info!("Generating cache for index pages.");    
+    let file_name = format!("index_{}", page);
+    let mut cache_path =
+        path_buf![&CONFIGS.cache_dir, &file_name];
+    cache_path.set_extension("writuscache");
+
+    let filled =
+        match gen_index_page_given_digest(gen_digests(cached, page), page) {
+        Some(filed) => filed,
+        None => return,
+    };
+    match File::create(&cache_path) {
+        Ok(mut file) => {
+            match file.write(filled.as_bytes()) {
+                Ok(_) => info!("Generated cache: {}", &file_name),
+                Err(_) => warn!("Failed to generate cache: {}", &file_name),
+            }
+        },
+        Err(_) => warn!("Unable to create cache file: {}", &file_name),
+    };
+}
+
+/// Generate cache for all articles and the fist page of index.
+pub fn gen_cache() -> CachedArticles {
+    let cached = gen_article_cache();
+    gen_index_page_cache(&cached, 1);
+    cached
+}
+
+//// Cache loading.
+//
+
+fn load_cached_article(local_path: &Path) -> Option<String> {
+    match local_path.canonicalize() {
+        Ok(name) => {
+            let name = match name.file_name().and_then(OsStr::to_str) {
+                Some(nm) => nm,
+                None => return None,
+            };
+            let mut cache_path =
+                path_buf![&CONFIGS.cache_dir, "post", name];
+            cache_path.set_extension("writuscache");
+            load_text_resource(&cache_path)
+        },
+        Err(_) => None,
+    }
+}
+fn load_cached_index_page(page: u32) -> Option<String> {
+    let cache_path =
+        path_buf![&CONFIGS.cache_dir, format!("index_{}.writuscache", page)];
+    load_text_resource(&cache_path)
+}
+
+//
+// Cache removal.
+//
+
 pub fn remove_cache() {
     info!("Removing all cache.");
     let path = Path::new(&CONFIGS.cache_dir);
@@ -202,38 +364,10 @@ pub fn get_material(local_path: &Path, media_type: &str) -> Option<Resource> {
     }
 }
 pub fn get_article(local_path: &Path) -> Option<Resource> {
-    use self::Resource::{Article, InvalidArticle};
-
-    let mut vars = TemplateVariables::new();
-    vars.read_from_metadata(local_path);
-    vars.complete_with_default(local_path);
-
-    let template_path =
-        path_buf![&CONFIGS.template_dir, &CONFIGS.post_template_path];
-    let template = match load_text_resource(template_path.as_path()) {
-        Some(tmpl) => tmpl,
-        None => return Some(InvalidArticle),
-    };
-    match vars.fill_template(&template) {
-        Some(filled) => Some(Article{content: filled}),
-        None => Some(InvalidArticle),
-    }
+    let mut vars = get_template_vars(local_path);
+    gen_article_given_vars(local_path, &mut vars)
 }
-fn load_cached_article(local_path: &Path) -> Option<String> {
-    match local_path.canonicalize() {
-        Ok(name) => {
-            let name = match name.file_name().and_then(OsStr::to_str) {
-                Some(nm) => nm,
-                None => return None,
-            };
-            let mut cache_path =
-                path_buf![&CONFIGS.cache_dir, name];
-            cache_path.set_extension("writuscache");
-            load_text_resource(&cache_path)
-        },
-        Err(_) => None,
-    }
-}
+
 /// Get resource file.
 pub fn get_resource(local_path: &Path, can_be_article: bool)
     -> Option<Resource> {
@@ -255,9 +389,8 @@ pub fn get_resource(local_path: &Path, can_be_article: bool)
             if let Some(cached) = load_cached_article(&local_path) {
                 info!("Found cache. Use cached page instead.");
                 return Some(Article{ content: cached });
-            } else {
-                warn!("Cache not found. Generate page now.");
             }
+            warn!("Cache not found. Generate page now.");
 
             // Cache not found, generate now.
             get_article(&local_path)
@@ -268,27 +401,18 @@ pub fn get_resource(local_path: &Path, can_be_article: bool)
     }
 }
 
-pub fn get_index_page(digest: String, page: u32) -> Option<Resource> {
-    fn make_pagination(page: u32) -> Option<String> {
-        let pagination_template_path =
-            path_buf![&CONFIGS.template_dir, &CONFIGS.pagination_template_path];
-        let pagination_template =
-            load_text_resource(&pagination_template_path).unwrap_or_default();
-
-        let mut vars = TemplateVariables::new();
-        vars.insert("page".to_owned(), page.to_string());
-        vars.fill_template(&pagination_template)
+/// Get index page.
+pub fn get_index_page(cached: &CachedArticles, page: u32) -> Option<Resource> {
+    let real_page = if page == 0 { 1 } else { page };
+    
+    let digests = gen_digests(cached, real_page);
+    if let Some(cached) = load_cached_index_page(real_page) {
+        info!("Found cache. Use cached page instead.");
+        return Some(Resource::Article{ content: cached });
     }
-    let index_template_path =
-        path_buf![&CONFIGS.template_dir, &CONFIGS.index_template_path];
-    let index_template = load_text_resource(&index_template_path)
-        .unwrap_or_default();
-
-    let mut vars = TemplateVariables::new();
-    vars.insert("digests".to_owned(), digest);
-    vars.insert("pagination".to_owned(),
-        make_pagination(page).unwrap_or_default());
-    if let Some(filled) = vars.fill_template(&index_template) {
-        Some(Resource::Article{ content: filled })
-    } else { None }
+    warn!("Cache not found. Generate page now.");
+    match gen_index_page_given_digest(digests, real_page) {
+        Some(content) => Some(Resource::Article{ content: content }),
+        None => None,
+    }
 }

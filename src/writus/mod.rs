@@ -42,46 +42,9 @@ fn resource_to_response(path: &str, resource: Option<Resource>) -> Response {
 /// response.
 struct WritusServer {
     /// Map of listed articles sorted by publish time.
-    cached_articles: resource::CachedAriticles,
+    cached_articles: resource::CachedArticles,
 }
 impl WritusServer {
-    /// Generate digests for a certain page.
-    fn gen_digests(&self, page: u32) -> String {
-        let base = page * &CONFIGS.digests_per_page;
-        let requested_articles = self.cached_articles.iter();
-
-        let template_path =
-            path_buf![&CONFIGS.template_dir, &CONFIGS.digest_template_path];
-        let template = resource::load_text_resource(template_path.as_path())
-            .unwrap_or_default();
-
-        let mut vars = template::TemplateVariables::new();
-
-        let mut digest_collected = String::new();
-
-        for (_, article_name) in requested_articles
-            .skip(base as usize)
-            .take(CONFIGS.digests_per_page as usize) {
-            let article_path =
-                    path_buf![&CONFIGS.post_dir, &article_name, "content.md"];
-            match resource::load_text_resource(article_path.as_path()) {
-                Some(content) => {
-                    let digest_parts: Vec<&str> = content.lines()
-                        .filter(|s: &&str| !s.trim_left().is_empty())
-                        .take(2)
-                        .collect();
-                    let digest_part = markdown::to_html(&(digest_parts.join("\r\n\r\n")));
-                    vars.insert("name".to_owned(), format!("/post/{}/", &article_name));
-                    vars.insert("digest".to_owned(), digest_part);
-                    digest_collected += &vars.fill_template(&template)
-                        .unwrap_or_default();
-                },
-                None => {},
-            }
-        }
-        digest_collected
-    }
-
     /// Make response for non-root directories. Only `./post` is allowed to
     /// store articles. Requests for articles out of it will be responded with
     /// 404.
@@ -134,9 +97,9 @@ impl WritusServer {
                             break;
                         }
                     }
-                    resource::get_index_page(self.gen_digests(page), page)
+                    resource::get_index_page(&self.cached_articles, page)
                 } else {
-                    resource::get_index_page(self.gen_digests(0), 0)
+                    resource::get_index_page(&self.cached_articles, 0)
                 }
             )
         } else {

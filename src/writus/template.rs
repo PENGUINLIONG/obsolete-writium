@@ -7,7 +7,6 @@ use std::time::SystemTime;
 
 use writus::chrono;
 use writus::chrono::Utc;
-use writus::markdown;
 
 use writus::resource;
 use writus::settings::CONFIGS;
@@ -37,12 +36,6 @@ impl TemplateVariables {
         let path = path_buf![&CONFIGS.template_dir, rel_path];
         resource::load_text_resource(path.as_path())
             .and_then(|s| self.fill_template(&s))
-    }
-    fn get_variable(&self, name: &str) -> Option<String> {
-        match self.vars.get(&name.to_owned()) {
-            Some(var) => Some(var.to_owned()),
-            None => None,
-        }
     }
 
     pub fn fill_template(&self, template: &str) -> Option<String> {
@@ -74,8 +67,9 @@ impl TemplateVariables {
                             // Insert variable.
                             let var_name = parts[1].trim();
                             info!("Insert variable: {}", var_name);
-                            rv += &self.get_variable(var_name)
-                                .unwrap_or_default();
+                            if let Some(st) = self.get(var_name) {
+                                rv += st;
+                            }
                         }
                     }
                     // Ignore unknown processing instructions.
@@ -88,13 +82,6 @@ impl TemplateVariables {
 
     /// Complete template variable map with default value.
     pub fn complete_with_default(&mut self, local_path: &Path) {
-        fn get_content(local_path: &Path) -> Option<String> {
-            let path = path_buf![local_path, "content.md"];
-            match resource::load_text_resource(path.as_path()) {
-                Some(s) => Some(markdown::to_html(&s)),
-                None => None,
-            }
-        }
         fn get_meta_dt<F: FnOnce(&Metadata) -> io::Result<SystemTime>>(local_path: &Path, dt_fn: F)
             -> Option<String> {
             let path = path_buf![local_path, "content.md"];
@@ -108,7 +95,7 @@ impl TemplateVariables {
             }
         }
 
-        // Can be overrided by user.
+        // Can be overridden by user.
 
         if !self.contains_key("author") {
             self.insert("author".to_owned(), "Akari".to_owned());
@@ -123,10 +110,11 @@ impl TemplateVariables {
             );
         }
 
-        // Cannot be overrided by user.
+        // Cannot be overridden by user.
 
-        self.insert("content".to_owned(), get_content(local_path)
-            .unwrap_or_default());
+        // Variable `content` will be added when article is going to be
+        // generated. After generation, it will immediately be removed because
+        // it takes too much memory.
         self.insert("created".to_owned(),
             get_meta_dt(local_path, Metadata::created)
                 .unwrap_or_default()
@@ -144,5 +132,13 @@ impl TemplateVariables {
     #[inline]
     pub fn insert(&mut self, key: String, value: String) -> Option<String> {
         self.vars.insert(key, value)
+    }
+    #[inline]
+    pub fn get(&self, key: &str) -> Option<&String> {
+        self.vars.get(key)
+    }
+    #[inline]
+    pub fn remove(&mut self, key: &str) -> Option<String> {
+        self.vars.remove(key)
     }
 }
