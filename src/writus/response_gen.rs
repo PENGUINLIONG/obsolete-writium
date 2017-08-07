@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use writus::iron::prelude::*;
 use writus::iron::headers::{ContentType};
 use writus::iron::status;
@@ -66,9 +64,7 @@ pub fn gen_error_page(code: status::Status) -> Response {
     let err_code_literal = map_error_code(code);
     info!("Generating error page from status {}.", &err_code_literal);
     // Don't use `find_rsc`. It will loop forever.
-    let mut path = PathBuf::new();
-    path.push(&CONFIGS.error_dir);
-    path.push(err_code_literal + ".html");
+    let path = path_buf![&CONFIGS.error_dir, err_code_literal + ".html"];
     match resource::load_text_resource(path.as_path()) {
         Some(s) => {
             let mut res = Response::with((code, s));

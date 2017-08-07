@@ -5,7 +5,7 @@ extern crate getopts;
 extern crate markdown;
 
 use std::io;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::{Arc, RwLock};
 
 use self::iron::prelude::*;
@@ -38,17 +38,20 @@ fn resource_to_response(path: &str, resource: Option<Resource>) -> Response {
     }
 }
 
-struct SharedData {
+/// Shared data object carrying all the informations might be used to make
+/// response.
+struct WritusServer {
+    /// Map of listed articles sorted by publish time.
     cached_articles: resource::CachedAriticles,
 }
-impl SharedData {
-    fn gen_digest(&self, page: u32) -> String {
+impl WritusServer {
+    /// Generate digests for a certain page.
+    fn gen_digests(&self, page: u32) -> String {
         let base = page * &CONFIGS.digests_per_page;
         let requested_articles = self.cached_articles.iter();
 
-        let mut template_path = PathBuf::new();
-        template_path.push(&CONFIGS.template_dir);
-        template_path.push(&CONFIGS.digest_template_path);
+        let template_path =
+            path_buf![&CONFIGS.template_dir, &CONFIGS.digest_template_path];
         let template = resource::load_text_resource(template_path.as_path())
             .unwrap_or_default();
 
@@ -59,10 +62,8 @@ impl SharedData {
         for (_, article_name) in requested_articles
             .skip(base as usize)
             .take(CONFIGS.digests_per_page as usize) {
-            let mut article_path = PathBuf::new();
-            article_path.push(&CONFIGS.post_dir);
-            article_path.push(&article_name);
-            article_path.push("content.md");
+            let article_path =
+                    path_buf![&CONFIGS.post_dir, &article_name, "content.md"];
             match resource::load_text_resource(article_path.as_path()) {
                 Some(content) => {
                     let digest_parts: Vec<&str> = content.lines()
@@ -81,18 +82,21 @@ impl SharedData {
         digest_collected
     }
 
-    fn make_response_for_dir(&self, local_dir: String, path: String, in_post_dir: bool) -> Response {
-        let mut local_path = PathBuf::new();
-        local_path.push(&local_dir);
-        local_path.push(&path);
+    /// Make response for non-root directories. Only `./post` is allowed to
+    /// store articles. Requests for articles out of it will be responded with
+    /// 404.
+    fn make_response_for_dir(&self, local_dir: String, path: String,
+        in_post_dir: bool) -> Response {
+        let local_path = path_buf![&local_dir, &path];
         // Make sure requested file is under published directory.
         match local_path.canonicalize() {
-            Ok(buf) =>
-                // Canonicalize $local_dir because the annoying prefix `\\?\` on
-                // Windows.
-                if !buf.starts_with(Path::new(&local_dir).canonicalize().unwrap()) {
-                // Even you access a file in a published directory from another one
-                // will lead to this error.
+            // Canonicalize $local_dir because the annoying prefix `\\?\` on
+            // Windows.
+            Ok(buf) => if !buf.starts_with(
+                Path::new(&local_dir).canonicalize().unwrap()
+            ) {
+                // Even you access a file in a published directory from
+                // another one will lead to this error.
                 info!("Requested resource is outside of published directory.");
                 return gen_error_page(status::Forbidden);
             },
@@ -105,16 +109,13 @@ impl SharedData {
             &path,
             resource::get_resource(local_path.as_path(), in_post_dir)
         )
-    }
-    fn make_response_for_root(&self, local_dir: String, path: String, query: Option<&str>)
-        -> Response {
-        let mut local_path = PathBuf::new();
-        local_path.push(&local_dir);
+    }    
+    /// Make response for root directory.
+    fn make_response_for_root(&self, local_dir: String, path: String,
+        query: Option<&str>) -> Response {
         if path.is_empty() {
             // Index page.
             info!("Request for index.");
-            local_path.push("index");
-
             resource_to_response(
                 &path,
                 if let Some(q) = query {
@@ -131,14 +132,14 @@ impl SharedData {
                             break;
                         }
                     }
-                    resource::get_index_page(self.gen_digest(page), page)
+                    resource::get_index_page(self.gen_digests(page), page)
                 } else {
-                    resource::get_index_page(self.gen_digest(0), 0)
+                    resource::get_index_page(self.gen_digests(0), 0)
                 }
             )
         } else {
             // Materials. Read only known file formats.
-            local_path.push(&path);
+            let local_path = path_buf![&local_dir, &path];
             resource_to_response(
                 &path,
                 if let Some(media_type) =
@@ -192,14 +193,15 @@ impl SharedData {
     }
 }
 
+/// Writus controller.
 pub struct Writus {
-    shared: Arc<RwLock<SharedData>>,
+    shared: Arc<RwLock<WritusServer>>,
     listening: iron::Listening,
 }
 impl Writus {
     pub fn new() -> Writus {
         // Use Rwlock to ensure there is no read / write conflicts
-        let shared = Arc::new(RwLock::new(SharedData {
+        let shared = Arc::new(RwLock::new(WritusServer {
             cached_articles: resource::gen_cache(),
         }));
         let shared_remote = shared.clone();

@@ -3,7 +3,7 @@ use std::ffi::OsStr;
 use std::fs;
 use std::fs::File;
 use std::io::{Read, Write};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use writus::chrono::{DateTime, Utc};
 
@@ -78,21 +78,19 @@ pub fn load_json_object(local_path: &Path) -> Option<Object> {
 //
 
 pub fn gen_cache() -> CachedAriticles {
-    fn gen_article_cache(entry: PathBuf) {
+    fn gen_article_cache(entry: &Path) {
         // Get metadata of each directory.
         if !entry.is_dir() { return }
 
-        let mut cache_path = PathBuf::new();
         let file_name = match entry.file_name()
             .and_then(OsStr::to_str) {
             Some(fname) => fname.to_owned(),
             None => return,
         };
-        cache_path.push(&CONFIGS.cache_dir);
-        cache_path.push(file_name.clone() + &".writuscache");
+        let cache_path =
+            path_buf![&CONFIGS.cache_dir, file_name.clone() + &".writuscache"];
 
-        let mut article_path = entry;
-        article_path.push("");
+        let article_path = path_buf![entry, ""];
         let filled = match get_article(article_path.as_path()) {
             Some(Resource::Article { content }) => content,
             _ => return,
@@ -110,9 +108,7 @@ pub fn gen_cache() -> CachedAriticles {
         };
     }
     fn get_pubdate(entry: &Path) -> Option<DateTime<Utc>> {
-        let mut metadata_path = PathBuf::new();
-        metadata_path.push(&entry);
-        metadata_path.push("metadata.json");
+        let metadata_path = path_buf![entry, "metadata.json"];
         if let Some(obj) = load_json_object(metadata_path.as_path()) {
             if let Some(pd) = obj.get("pubDate") {
                 if let Ok(parsed) =
@@ -122,9 +118,7 @@ pub fn gen_cache() -> CachedAriticles {
             }
         }
         // TODO: Loop over and get time and sort. Ignore all non-timed articles.
-        let mut content_path = PathBuf::new();
-        content_path.push(&entry);
-        content_path.push("content.md");
+        let content_path = path_buf![entry, "content.md"];
         match fs::metadata(content_path) {
             Ok(file_meta) => match file_meta.created() {
                 Ok(sys_time) =>
@@ -147,8 +141,9 @@ pub fn gen_cache() -> CachedAriticles {
     match fs::read_dir(&CONFIGS.post_dir) {
         Ok(entries) => for entry in entries {
             if let Ok(en) = entry {
-                gen_article_cache(en.path());
-                let article_pub_date = get_pubdate(en.path().as_path());
+                let path = en.path();
+                gen_article_cache(&path);
+                let article_pub_date = get_pubdate(&path);
                 let article_name = en.file_name().into_string();
                 if article_pub_date.is_some() &&
                     article_name.is_ok() {
@@ -213,9 +208,8 @@ pub fn get_article(local_path: &Path) -> Option<Resource> {
     vars.read_from_metadata(local_path);
     vars.complete_with_default(local_path);
 
-    let mut template_path = PathBuf::new();
-    template_path.push(&CONFIGS.template_dir);
-    template_path.push(&CONFIGS.post_template_path);
+    let template_path =
+        path_buf![&CONFIGS.template_dir, &CONFIGS.post_template_path];
     let template = match load_text_resource(template_path.as_path()) {
         Some(tmpl) => tmpl,
         None => return Some(InvalidArticle),
@@ -232,11 +226,10 @@ fn load_cached_article(local_path: &Path) -> Option<String> {
                 Some(nm) => nm,
                 None => return None,
             };
-            let mut cache_path = PathBuf::new();
-            cache_path.push(&CONFIGS.cache_dir);
-            cache_path.push(name);
+            let mut cache_path =
+                path_buf![&CONFIGS.cache_dir, name];
             cache_path.set_extension("writuscache");
-            load_text_resource(cache_path.as_path())
+            load_text_resource(&cache_path)
         },
         Err(_) => None,
     }
@@ -277,26 +270,24 @@ pub fn get_resource(local_path: &Path, can_be_article: bool)
 
 pub fn get_index_page(digest: String, page: u32) -> Option<Resource> {
     fn make_pagination(page: u32) -> Option<String> {
-        let mut pagination_template_path = PathBuf::new();
-        pagination_template_path.push(&CONFIGS.template_dir);
-        pagination_template_path.push(&CONFIGS.pagination_template_path);
+        let pagination_template_path =
+            path_buf![&CONFIGS.template_dir, &CONFIGS.pagination_template_path];
         let pagination_template =
-            load_text_resource(pagination_template_path.as_path())
-                .unwrap_or_default();
+            load_text_resource(&pagination_template_path).unwrap_or_default();
 
         let mut vars = TemplateVariables::new();
         vars.insert("page".to_owned(), page.to_string());
         vars.fill_template(&pagination_template)
     }
-    let mut index_template_path = PathBuf::new();
-    index_template_path.push(&CONFIGS.template_dir);
-    index_template_path.push(&CONFIGS.index_template_path);
-    let index_template = load_text_resource(index_template_path.as_path())
+    let index_template_path =
+        path_buf![&CONFIGS.template_dir, &CONFIGS.index_template_path];
+    let index_template = load_text_resource(&index_template_path)
         .unwrap_or_default();
 
     let mut vars = TemplateVariables::new();
     vars.insert("digests".to_owned(), digest);
-    vars.insert("pagination".to_owned(), make_pagination(page).unwrap_or_default());
+    vars.insert("pagination".to_owned(),
+        make_pagination(page).unwrap_or_default());
     if let Some(filled) = vars.fill_template(&index_template) {
         Some(Resource::Article{ content: filled })
     } else { None }

@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::fs::metadata;
 use std::fs::Metadata;
 use std::io;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::time::SystemTime;
 
 use writus::chrono;
@@ -23,9 +23,7 @@ impl TemplateVariables {
         }
     }
     pub fn read_from_metadata(&mut self, local_path: &Path) {
-        let mut metadata_path = PathBuf::new();
-        metadata_path.push(local_path);
-        metadata_path.push("metadata.json");
+        let metadata_path = path_buf![local_path, "metadata.json"];
         let metadata = match resource::load_json_object(metadata_path.as_path()) {
             Some(j) => j,
             None => return,
@@ -36,9 +34,7 @@ impl TemplateVariables {
     }
 
     fn get_fragment(&self, rel_path: &Path) -> Option<String> {
-        let mut path = PathBuf::new();
-        path.push(&CONFIGS.template_dir);
-        path.push(rel_path);
+        let path = path_buf![&CONFIGS.template_dir, rel_path];
         resource::load_text_resource(path.as_path())
             .and_then(|s| self.fill_template(&s))
     }
@@ -93,9 +89,7 @@ impl TemplateVariables {
     /// Complete template variable map with default value.
     pub fn complete_with_default(&mut self, local_path: &Path) {
         fn get_content(local_path: &Path) -> Option<String> {
-            let mut path = PathBuf::new();
-            path.push(local_path);
-            path.push("content.md");
+            let path = path_buf![local_path, "content.md"];
             match resource::load_text_resource(path.as_path()) {
                 Some(s) => Some(markdown::to_html(&s)),
                 None => None,
@@ -103,10 +97,8 @@ impl TemplateVariables {
         }
         fn get_meta_dt<F: FnOnce(&Metadata) -> io::Result<SystemTime>>(local_path: &Path, dt_fn: F)
             -> Option<String> {
-            let mut path = PathBuf::new();
-            path.push(local_path);
-            path.push("content.md");
-            match metadata(local_path) {
+            let path = path_buf![local_path, "content.md"];
+            match metadata(path) {
                 Ok(file_meta) => match (dt_fn)(&file_meta) {
                     Ok(sys_time) => Some(chrono::DateTime::<Utc>::from(sys_time)
                         .to_rfc3339()),
