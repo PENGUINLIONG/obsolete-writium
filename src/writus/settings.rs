@@ -10,7 +10,7 @@ use writus::getopts::{Matches, Options};
 use writus::resource;
 
 pub struct WritusConfigs {
-    /// Host address. Must include port number.
+    /// Host server address or domain. Must include port number.
     pub host_addr: String,
 
     /// The directory where posts located.

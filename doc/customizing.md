@@ -6,7 +6,7 @@ writing experience.
 Writus read a configuration file to extract information it needs. Assume the
 file is called `settings.json`, we must have the following items set:
 
-- `hostAddr`: Address of host server. Port number should be included.
+- `hostAddr`: Host server address or domain. Must include port number.
 - `postDir`: The directory where posts located.
 - `errorDir`: The directory where error pages located.
 - `templateDir`: The directory where template files located.
@@ -29,10 +29,23 @@ slash as prefix. [default: post.html]
 The file will be read once during initialization, and will not be accessed a
 second time.
 
+To start Writus up, run the following commands:
+
+```
+cd /path/to/Writus
+cargo build --release
+cargo run --release "/path/to/settings.json"
+```
+
+Note: You can have different websites using different combinations of resources
+running on a single physical server using different configuration files. But you
+have to separate the caches and initialize them one-by-one.
+
 ## Directory Structure
 
 The number of directory exposed is limited to three: `root`, `post`, and
-`static`. The other directories are consumed by Writus itself.
+`static`. The other directories are consumed by Writus itself. The directories
+can, but not necessarily stay in a same place.
 
 ```
 /(root) --+-- post
@@ -45,7 +58,8 @@ as-is.
 However, when a incoming URL try accessing a first-layer directory other than
 `post` and `static`, like `/not/exposed.txt`, it will be treated as a request
 towards something in `root`. So the actual file searching will be redirected to
-`/root/not/exposed.txt`.
+`/root/not/exposed.txt`. All requests towards the root of exposed first-layer
+directories will be responded with `403 Forbidden`.
 
 Additionally, every request is checked for extension to ensure the requested
 file is allowed to be distributed. See [Safety](/doc/safety.md) for more
@@ -62,7 +76,8 @@ unknown error will be redirected to `Unknown.html`.
 
 Posts are written in common Markdown and encoded in UTF-8. Place them in
 `./post`. Each post, named `content.md`, is place in an individual sub-directory
-with its metadata. File search is case-sensitive.
+with its metadata. File search is case-sensitive, although path search on
+Windows are not case-sensitive due to historical reasons.
 
 ## Static Files
 
@@ -116,11 +131,9 @@ The following template variables are from `metadata.json` and are optional:
 - `title`: Title of article. [default: Untitled]
 - `published`: Publish date of article. [default: Same as `created`]
 
-File search and variable name are case-sensitive, although path search on
-Windows are not case-sensitive due to historical reasons. The following
-variables are recommended to be defined and will be set with default value in
-case of absence. Parse error born by `metadata.json` will be ignored, and will
-not prevent Writus from working properly.
+File search and variable name are case-sensitive. Parse error born by
+`metadata.json` will be ignored, and will not prevent Writus from working
+properly.
 
 All time variables, including following ones, should be written in string
 literal, and should follow [RFC3999](https://tools.ietf.org/html/rfc3339) to be
