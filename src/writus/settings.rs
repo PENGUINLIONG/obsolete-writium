@@ -1,6 +1,9 @@
 use std::env::args;
 use std::path::Path;
 use std::process::exit;
+use std::collections::HashMap;
+
+use writus::json::object::Object;
 
 use writus::getopts::{Matches, Options};
 
@@ -71,32 +74,61 @@ impl WritusConfigs {
                 Err(_) => None,
             }
         }
-        fn fill_setting(configs: &mut WritusConfigs, key: &str, val: &str)
-            -> bool {
-            let val = val.to_owned();
-            match key {
-                "hostAddr" => configs.host_addr = val,
 
-                "postDir" => configs.post_dir = val,
-                "errorDir" => configs.error_dir = val,
-                "templateDir" => configs.template_dir = val,
-                "staticDir" => configs.static_dir = val,
-                "rootDir" => configs.root_dir = val,
-                
-                "cacheDir" => configs.cache_dir = val,
-                
-                "digestTemplatePath" => configs.digest_template_path = val,
-                "indexTemplatePath" => configs.index_template_path = val,
-                "paginationTemplatePath" => configs.pagination_template_path = val,
-                "postTemplatePath" => configs.post_template_path = val,
-
-                "digestsPerPage" => configs.digests_per_page = match val.parse::<u32>() {
-                    Ok(v) => v,
-                    Err(_) => return false,
-                },
-                _ => return false,
+        fn fill_setting(configs: &mut WritusConfigs, object: &Object) {
+            #[inline]
+            fn must_have(obj: &mut HashMap<&str, String>, name: &str)
+                -> String {
+                match obj.remove(name) {
+                    Some(val) => val,
+                    None => {
+                        error!("\"{}\" is needed but we don't have it.", name);
+                        exit(1);
+                    },
+                }
             }
-            true
+            #[inline]
+            fn have_or(obj: &mut HashMap<&str, String>, name: &str, def: &str)
+                -> String {
+                match obj.remove(name) {
+                    Some(val) => val,
+                    None => {
+                        info!("\"{}\" is filled by default: {}", name, def);
+                        def.to_owned()
+                    },
+                }
+            }
+
+            let mut obj = HashMap::new();
+            for (key, val) in object.iter() {
+                obj.insert(key, val.to_string());
+            }
+
+            configs.host_addr = must_have(&mut obj, "hostAddr");
+
+            configs.post_dir = must_have(&mut obj, "postDir");
+            configs.error_dir = must_have(&mut obj, "errorDir");
+            configs.template_dir = must_have(&mut obj, "templateDir");
+            configs.static_dir = must_have(&mut obj, "staticDir");
+            configs.root_dir = must_have(&mut obj, "rootDir");
+
+            configs.cache_dir = must_have(&mut obj, "cacheDir");
+
+            configs.digest_template_path =
+                have_or(&mut obj, "digestTemplatePath", "digest.html");
+            configs.index_template_path =
+                have_or(&mut obj, "indexTemplatePath", "index.html");
+            configs.pagination_template_path =
+                have_or(&mut obj, "paginationTemplatePath", "pagination.html");
+            configs.post_template_path =
+                have_or(&mut obj, "postTemplatePath", "post.html");
+
+            configs.digests_per_page = match obj.get("digestsPerPage")
+                .unwrap_or(&"5".to_owned())
+                .parse::<u32>() {
+                Ok(v) => v,
+                Err(_) => 5,
+            }
         }
 
         let mut rv = WritusConfigs::new();
@@ -113,16 +145,7 @@ impl WritusConfigs {
                 }
                 let path = &matches.free[0];
                 match resource::load_json_object(Path::new(&path)) {
-                    Some(obj) => {
-                        let mut count = 0;
-                        for (key, val) in obj.iter() {
-                            if fill_setting(&mut rv, &key, &val.to_string()) { count += 1 }
-                        }
-                        if count < 12 {
-                            error!("Configuration file is not complete.");
-                            exit(1);
-                        }
-                    },
+                    Some(obj) => fill_setting(&mut rv, &obj),
                     None => {
                         error!("Unable to read configuration file.");
                         exit(1);

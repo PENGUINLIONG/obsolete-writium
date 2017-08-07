@@ -140,12 +140,19 @@ impl WritusServer {
         match map_search_dir(&search_dir) {
             Some(dir) => {
                 info!("Search directory is {}.", search_dir);
-                self.make_response_for_dir(dir.to_owned(), path[1..].join("/"), search_dir == "post")
+                self.make_response_for_dir(
+                    dir.to_owned(),
+                    path[1..].join("/"),
+                    search_dir == "post"
+                )
             },
             None => {
                 info!("Search directory is root.", );
-                self.make_response_for_root(CONFIGS.root_dir.to_owned(), path.join("/"),
-                    req.url.query())
+                self.make_response_for_root(
+                    CONFIGS.root_dir.to_owned(),
+                    path.join("/"),
+                    req.url.query()
+                )
             },
         }
     }

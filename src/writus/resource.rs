@@ -160,18 +160,44 @@ fn gen_digests(cached: &CachedArticles, page: u32) -> String {
     digest_collected
 }
 /// Generate pagination for certain page.
-fn gen_pagination(page: u32) -> Option<String> {
+fn gen_pagination(cached: &CachedArticles, page: u32) -> Option<String> {
     let pagination_template_path =
         path_buf![&CONFIGS.template_dir, &CONFIGS.pagination_template_path];
     let pagination_template =
         load_text_resource(&pagination_template_path).unwrap_or_default();
 
+    /// Provide the corresponding page number or empty string depending on the
+    /// existence of that page.
+    let len = cached.len() as u32;
+    let per_page = &CONFIGS.digests_per_page;
+    let mut max_page = len / per_page;
+    if len % per_page > 0 {
+        max_page += 1;
+    }
+
+    // It won't underflow as we have hav added 1 to it before.
+    let mut page_cur = page - 1;
     let mut vars = TemplateVariables::new();
-    vars.insert("page".to_owned(), page.to_string());
+    if page_cur > 0 && page_cur <= max_page {
+        vars.insert("previousPage".to_owned(), page_cur.to_string());
+        vars.insert("previousPageLink".to_owned(),
+            format!("/?page={}", page_cur).to_string());
+    }
+    page_cur += 1;
+    if page_cur > 0 && page_cur <= max_page {
+        vars.insert("thisPage".to_owned(), page_cur.to_string());
+    }
+    page_cur += 1;
+    if page_cur > 0 && page_cur <= max_page
+     {
+        vars.insert("nextPage".to_owned(), page_cur.to_string());
+        vars.insert("nextPageLink".to_owned(),
+            format!("/?page={}", page_cur).to_string());
+    }
     vars.fill_template(&pagination_template)
 }
 /// Generate given page of index with given digest. 
-fn gen_index_page_given_digest(digests: String, page: u32)
+fn gen_index_page_given_digest(cached: &CachedArticles, digests: String, page: u32)
     -> Option<String> {
     let index_template_path =
         path_buf![&CONFIGS.template_dir, &CONFIGS.index_template_path];
@@ -181,7 +207,7 @@ fn gen_index_page_given_digest(digests: String, page: u32)
     let mut vars = TemplateVariables::new();
     vars.insert("digests".to_owned(), digests);
     vars.insert("pagination".to_owned(),
-        gen_pagination(page).unwrap_or_default());
+        gen_pagination(cached, page).unwrap_or_default());
     if let Some(filled) = vars.fill_template(&index_template) {
         Some(filled)
     } else {
@@ -268,7 +294,7 @@ fn gen_index_page_cache(cached: &CachedArticles, page: u32) {
     cache_path.set_extension("writuscache");
 
     let filled =
-        match gen_index_page_given_digest(gen_digests(cached, page), page) {
+        match gen_index_page_given_digest(cached, gen_digests(cached, page), page) {
         Some(filed) => filed,
         None => return,
     };
@@ -411,7 +437,7 @@ pub fn get_index_page(cached: &CachedArticles, page: u32) -> Option<Resource> {
         return Some(Resource::Article{ content: cached });
     }
     warn!("Cache not found. Generate page now.");
-    match gen_index_page_given_digest(digests, real_page) {
+    match gen_index_page_given_digest(cached, digests, real_page) {
         Some(content) => Some(Resource::Article{ content: content }),
         None => None,
     }
