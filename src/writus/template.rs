@@ -46,7 +46,7 @@ impl TemplateVariables {
             match template.find("<?") {
                 Some(beg) => rv.extend(template.drain(..beg)),
                 // No more processing instructions, get out of the loop.
-                None => return Some(rv),
+                None => return Some(rv + &template),
             }
             match template.find("?>") {
                 Some(end) => {

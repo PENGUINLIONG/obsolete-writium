@@ -200,6 +200,7 @@ impl Writus {
                 self.close();
                 return true;
             },
+            "remove_cache" => resource::remove_cache(),
             "recache" => {
                 if let Ok(mut locked) = self.shared.write() {
                     resource::remove_cache();
