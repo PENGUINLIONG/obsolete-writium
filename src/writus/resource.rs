@@ -164,6 +164,9 @@ fn gen_digests(cached: &CachedArticles, page: u32) -> String {
         // Page number is 1-based, so minus 1.
         .skip(((page - 1) * &CONFIGS.digests_per_page) as usize)
         .take(CONFIGS.digests_per_page as usize) {
+        let path = path_buf![&CONFIGS.post_dir, &article_name];
+        vars.read_from_metadata(&path);
+        vars.complete_with_default(&path);
         let article_path =
                 path_buf![&CONFIGS.post_dir, &article_name];
         if let Some((title, mut content)) =

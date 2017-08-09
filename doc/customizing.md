@@ -153,9 +153,10 @@ Index templates are provided with two variables:
 #### Digest Template
 
 Digest templates are used to generate blocks of digests. The digests will be
-concatenated together to form `digests` used in index template.
+concatenated together to form `digests` used in index template. All template
+variables provided for index template are also available here. Additionally, we
+have:
 
-- `digest`: Digest of article.
 - `path`: Path to the full article.
 
 #### Pagination Template
