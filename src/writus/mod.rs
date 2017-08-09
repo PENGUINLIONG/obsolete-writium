@@ -76,7 +76,7 @@ impl WritusServer {
         )
     }    
     /// Make response for root directory.
-    fn make_response_for_root(&self, local_dir: String, path: String,
+    fn make_response_for_root(&self, path: String,
         query: Option<&str>) -> Response {
         if path.is_empty() {
             // Index page.
@@ -103,14 +103,16 @@ impl WritusServer {
                 }
             )
         } else {
+            let local_path = path_buf![&CONFIGS.root_dir, &path];
             // Materials. Read only known file formats.
-            let local_path = path_buf![&local_dir, &path];
             resource_to_response(
                 &path,
                 if let Some(media_type) =
-                    resource::deduce_type_by_ext(local_path.as_path()) {
-                    resource::get_material(local_path.as_path(), media_type)
-                } else { None }
+                    resource::deduce_type_by_ext(&local_path) {
+                    resource::get_material(&local_path, media_type)
+                } else {
+                    resource::get_article(&local_path)
+                }
             )
         }
     }
@@ -149,7 +151,6 @@ impl WritusServer {
             None => {
                 info!("Search directory is root.", );
                 self.make_response_for_root(
-                    CONFIGS.root_dir.to_owned(),
                     path.join("/"),
                     req.url.query()
                 )
