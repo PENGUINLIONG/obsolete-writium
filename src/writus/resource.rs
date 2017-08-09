@@ -137,12 +137,12 @@ fn gen_article_given_vars(local_path: &Path, vars: &mut TemplateVariables) -> Op
         Some(tp) => tp,
         None => return Some(InvalidArticle),
     };
-    vars.insert("content".to_owned(), content);
+    vars.insert("content".to_owned(), markdown::to_html(&content));
     vars.insert("title".to_owned(), title);
     let md_opt = vars.fill_template(&template);
     vars.remove("content");
     match md_opt {
-        Some(md) => Some(Article{content: markdown::to_html(&md)}),
+        Some(md) => Some(Article{content: md}),
         None => Some(InvalidArticle),
     }
 }
