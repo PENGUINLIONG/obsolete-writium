@@ -456,12 +456,12 @@ pub fn get_resource(local_path: &Path, can_be_article: bool)
 pub fn get_index_page(cached: &CachedArticles, page: u32) -> Option<Resource> {
     let real_page = if page == 0 { 1 } else { page };
     
-    let digests = gen_digests(cached, real_page);
     if let Some(cached) = load_cached_index_page(real_page) {
         info!("Found cache. Use cached page instead.");
         return Some(Resource::Article{ content: cached });
     }
     warn!("Cache not found. Generate page now.");
+    let digests = gen_digests(cached, real_page);
     match gen_index_page_given_digest(cached, digests, real_page) {
         Some(content) => Some(Resource::Article{ content: content }),
         None => None,
