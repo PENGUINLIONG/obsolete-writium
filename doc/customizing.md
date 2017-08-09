@@ -118,7 +118,9 @@ or in-time generation.
 Template variables used to fill `post` are made from three different ways:
 `content.md` itself, filesystem metadata of `content.md`, and `metadata.json`.
 
-Only `content` is generated from `content.md`.
+`content` and `title` are generated from `content.md`. `title` will be filled
+with the first line and `content` will be filled with anything else in the file.
+The hash ('#') prefix of the first line will be removed automatically.
 
 The following template variables are from filesystem metadata:
 
@@ -128,7 +130,6 @@ The following template variables are from filesystem metadata:
 The following template variables are from `metadata.json` and are optional:
 
 - `author`: Author of article. [default: Akari]
-- `title`: Title of article. [default: Untitled]
 - `published`: Publish date of article. [default: Same as `created`]
 
 File search and variable name are case-sensitive. Parse error born by

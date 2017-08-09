@@ -100,9 +100,9 @@ impl TemplateVariables {
         if !self.contains_key("author") {
             self.insert("author".to_owned(), "Akari".to_owned());
         }
-        if !self.contains_key("title") {
-            self.insert("title".to_owned(), "Untitled".to_owned());
-        }
+
+        // Now `title` is the first line of an article.
+
         if !self.contains_key("published") {
             self.insert("published".to_owned(),
                 get_meta_dt(local_path, Metadata::created)

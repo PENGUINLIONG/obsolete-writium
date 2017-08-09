@@ -12,7 +12,7 @@ getopts = "0.2"
 iron = "0.5.1"
 json = "0.11.8"
 lazy_static = "0.2"
-markdown = "0.2"
+markdown = { git = "https://github.com/PENGUINLIONG/markdown.rs", branch = "utf8-fix" }
 log = "0.3"
 env_logger = "0.4"
 path_buf = "0.1"

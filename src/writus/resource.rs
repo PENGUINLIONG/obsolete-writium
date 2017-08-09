@@ -97,16 +97,34 @@ fn get_template_vars(local_path: &Path) -> TemplateVariables {
     vars.complete_with_default(local_path);
     vars
 }
+
+pub fn get_article_title_content_markdown(local_path: &Path)
+    -> Option<(String, String)> {
+    let path = path_buf![local_path, "content.md"];
+    match load_text_resource(path.as_path()) {
+        Some(mut s) => {
+            let linebreak_pos = match s.find("\r\n") {
+                Some(pos) => pos,
+                None => return None,
+            };
+            // Get title.
+            let title_line: String = s.drain(..linebreak_pos).collect();
+            let mut pos = 0;
+            for (idx, ch) in title_line.char_indices() {
+                if ch != '#' { pos = idx; break; }
+            }
+            let title = title_line[pos..].trim();
+            // Get content.
+            let content = s.trim();
+            Some((title.to_owned(), content.to_owned()))
+        },
+        None => None,
+    }
+}
+
 /// Generate article with provided template variables.
 fn gen_article_given_vars(local_path: &Path, vars: &mut TemplateVariables) -> Option<Resource> {
     use self::Resource::{Article, InvalidArticle};
-    fn get_content(local_path: &Path) -> Option<String> {
-        let path = path_buf![local_path, "content.md"];
-        match load_text_resource(path.as_path()) {
-            Some(s) => Some(markdown::to_html(&s)),
-            None => None,
-        }
-    }
 
     let template_path =
         path_buf![&CONFIGS.template_dir, &CONFIGS.post_template_path];
@@ -114,12 +132,17 @@ fn gen_article_given_vars(local_path: &Path, vars: &mut TemplateVariables) -> Op
         Some(tmpl) => tmpl,
         None => return Some(InvalidArticle),
     };
-    vars.insert("content".to_owned(), get_content(local_path)
-        .unwrap_or_default());
-    let filled_opt = vars.fill_template(&template);
+    let (title, content) =
+        match get_article_title_content_markdown(local_path) {
+        Some(tp) => tp,
+        None => return Some(InvalidArticle),
+    };
+    vars.insert("content".to_owned(), content);
+    vars.insert("title".to_owned(), title);
+    let md_opt = vars.fill_template(&template);
     vars.remove("content");
-    match filled_opt {
-        Some(filled) => Some(Article{content: filled}),
+    match md_opt {
+        Some(md) => Some(Article{content: markdown::to_html(&md)}),
         None => Some(InvalidArticle),
     }
 }
@@ -142,17 +165,19 @@ fn gen_digests(cached: &CachedArticles, page: u32) -> String {
         .skip(((page - 1) * &CONFIGS.digests_per_page) as usize)
         .take(CONFIGS.digests_per_page as usize) {
         let article_path =
-                path_buf![&CONFIGS.post_dir, &article_name, "content.md"];
-        if let Some(content) = load_text_resource(&article_path) {
-            let digest_parts: Vec<&str> = content.lines()
-                .filter(|s: &&str| !s.trim_left().is_empty())
-                .take(2)
-                .collect();
-            let digest =
-                markdown::to_html(&(digest_parts.join("\r\n\r\n")));
-            vars.insert("path".to_owned(),
-                format!("/post/{}/", &article_name));
-            vars.insert("digest".to_owned(), digest);
+                path_buf![&CONFIGS.post_dir, &article_name];
+        if let Some((title, mut content)) =
+            get_article_title_content_markdown(&article_path) {
+            // Show 50 characters.
+            let linebreak_pos = match content.find("\r\n") {
+                Some(pos) => pos,
+                // Only one line with no content. 
+                None => continue,
+            };
+            let content: String = content.drain(..linebreak_pos).collect();
+            vars.insert("path".to_owned(), format!("/post/{}/", &article_name));
+            vars.insert("title".to_owned(), title);
+            vars.insert("content".to_owned(), markdown::to_html(&content));
             digest_collected += &vars.fill_template(&template)
                 .unwrap_or_default();
         }
