@@ -160,7 +160,7 @@ fn gen_digests(cached: &CachedArticles, page: u32) -> String {
 
     let mut vars = TemplateVariables::new();
     let mut digest_collected = String::new();
-    for (_, article_name) in cached.iter()
+    for (_, article_name) in cached.iter().rev()
         // Page number is 1-based, so minus 1.
         .skip(((page - 1) * &CONFIGS.digests_per_page) as usize)
         .take(CONFIGS.digests_per_page as usize) {
