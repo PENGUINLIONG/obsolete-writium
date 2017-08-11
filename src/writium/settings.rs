@@ -42,6 +42,15 @@ pub struct WritusConfigs {
 
     /// Number of digests shown per page on index page. [default: 5]
     pub digests_per_page: u32,
+    
+    /// Path to SSH identity.
+    /// How to generate:
+    /// ```bash
+    /// openssl req -x509 -newkey rsa:4096 -nodes -keyout localhost.key -out localhost.crt -days 3650
+    /// openssl pkcs12 -export -out identity.p12 -inkey localhost.key -in localhost.crt --password PASSWORD
+    /// ```
+    /// And you have your identity `identity.p12` now.
+    pub ssh_identity_path: String,
 }
 impl WritusConfigs {
     fn new() -> WritusConfigs {
@@ -62,6 +71,8 @@ impl WritusConfigs {
             post_template_path: String::new(),
 
             digests_per_page: 0,
+
+            ssh_identity_path: String::new(),
         }
     }
     pub fn from_args() -> WritusConfigs {
@@ -129,7 +140,10 @@ impl WritusConfigs {
                 .parse::<u32>() {
                 Ok(v) => v,
                 Err(_) => 5,
-            }
+            };
+
+            configs.ssh_identity_path =
+                have_or(&mut obj, "sshIdentityPath", "");
         }
 
         let mut rv = WritusConfigs::new();

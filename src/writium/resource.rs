@@ -268,7 +268,7 @@ fn gen_article_cache() -> CachedArticles {
         };
         let mut cache_path =
             path_buf![&CONFIGS.cache_dir, "post", &file_name];
-        cache_path.set_extension("writuscache");
+        cache_path.set_extension("writiumcache");
 
         let article_path = path_buf![entry, ""];
         let mut vars = get_template_vars(&article_path);
@@ -319,7 +319,7 @@ fn gen_index_page_cache(cached: &CachedArticles, page: u32) {
     let file_name = format!("index_{}", page);
     let mut cache_path =
         path_buf![&CONFIGS.cache_dir, &file_name];
-    cache_path.set_extension("writuscache");
+    cache_path.set_extension("writiumcache");
 
     let filled =
         match gen_index_page_given_digest(cached, gen_digests(cached, page), page) {
@@ -356,7 +356,7 @@ fn load_cached_article(local_path: &Path) -> Option<String> {
             };
             let mut cache_path =
                 path_buf![&CONFIGS.cache_dir, "post", name];
-            cache_path.set_extension("writuscache");
+            cache_path.set_extension("writiumcache");
             load_text_resource(&cache_path)
         },
         Err(_) => None,
@@ -364,7 +364,7 @@ fn load_cached_article(local_path: &Path) -> Option<String> {
 }
 fn load_cached_index_page(page: u32) -> Option<String> {
     let cache_path =
-        path_buf![&CONFIGS.cache_dir, format!("index_{}.writuscache", page)];
+        path_buf![&CONFIGS.cache_dir, format!("index_{}.writiumcache", page)];
     load_text_resource(&cache_path)
 }
 

@@ -2,6 +2,7 @@ extern crate chrono;
 extern crate iron;
 extern crate json;
 extern crate getopts;
+extern crate hyper_native_tls;
 extern crate markdown;
 
 use std::io;
@@ -11,6 +12,8 @@ use std::sync::{Arc, RwLock};
 use self::iron::prelude::*;
 use self::iron::method::Method;
 use self::iron::status;
+
+use self::hyper_native_tls::NativeTlsServer;
 
 mod resource;
 mod response_gen;
@@ -31,8 +34,7 @@ fn resource_to_response(path: &str, resource: Option<Resource>) -> Response {
             InvalidArticle => gen_error_page(status::NotFound),
             Material { media_type, data } => gen_spec(data, media_type),
             InvalidMaterial => gen_error(status::NotFound),
-            AddSlash =>
-                gen_redirection(&(format!("/{}/", &path))),
+            AddSlash => gen_redirection(&(format!("/{}/", &path))),
         },
         None => gen_error_page(status::NotFound),
     }
@@ -40,11 +42,11 @@ fn resource_to_response(path: &str, resource: Option<Resource>) -> Response {
 
 /// Shared data object carrying all the informations might be used to make
 /// response.
-struct WritusServer {
+struct WritiumServer {
     /// Map of listed articles sorted by publish time.
     cached_articles: resource::CachedArticles,
 }
-impl WritusServer {
+impl WritiumServer {
     /// Make response for non-root directories. Only `./post` is allowed to
     /// store articles. Requests for articles out of it will be responded with
     /// 404.
@@ -164,25 +166,37 @@ impl WritusServer {
 
 /// Writium controller.
 pub struct Writium {
-    shared: Arc<RwLock<WritusServer>>,
+    shared: Arc<RwLock<WritiumServer>>,
     listening: iron::Listening,
 }
 impl Writium {
     pub fn new() -> Writium {
         // Use Rwlock to ensure there is no read / write conflicts
-        let shared = Arc::new(RwLock::new(WritusServer {
+        let shared = Arc::new(RwLock::new(WritiumServer {
             cached_articles: resource::gen_cache(),
         }));
         let shared_remote = shared.clone();
+        let handler = move |req: &mut Request| {
+            if let Ok(locked) = shared_remote.read() {
+                (*locked).response(req)
+            } else {
+                error!("Unable to read-lock.");
+                Ok(iron::Response::with((iron::status::InternalServerError)))
+            }
+        };
         Writium {
-            listening: Iron::new(move |req: &mut Request| {
-                if let Ok(locked) = shared_remote.read() {
-                    (*locked).response(req)
+            listening: if CONFIGS.ssh_identity_path.is_empty() {
+                    Iron::new(handler).http(&CONFIGS.host_addr).unwrap()
                 } else {
-                    error!("Unable to read-lock.");
-                    Ok(iron::Response::with((iron::status::InternalServerError)))
-                }
-            }).http(&CONFIGS.host_addr).unwrap(),
+                    let mut password = String::new();
+                    println!("Say the password to use the identity {}:",
+                        &CONFIGS.ssh_identity_path);
+                    let _ = io::stdin().read_line(&mut password);
+                    let ssl = NativeTlsServer::new(&CONFIGS.ssh_identity_path,
+                        &password).unwrap();
+
+                    Iron::new(handler).https(&CONFIGS.host_addr, ssl).unwrap()
+                },
             shared: shared,
         }
     }
