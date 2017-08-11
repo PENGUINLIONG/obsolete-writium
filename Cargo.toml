@@ -1,10 +1,10 @@
 [package]
-name = "writus"
+name = "writium"
 version = "0.1.0"
 authors = ["PENGUINLIONG <admin@penguinliong.moe>"]
 description = "Static article host based on iron."
 license = "MIT"
-repository = "https://github.com/PENGUINLIONG/Writus"
+repository = "https://github.com/PENGUINLIONG/writium"
 
 [dependencies]
 chrono = "0.4.0"
