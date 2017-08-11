@@ -185,14 +185,14 @@ impl Writium {
             }
         };
         Writium {
-            listening: if CONFIGS.ssh_identity_path.is_empty() {
+            listening: if CONFIGS.ssl_identity_path.is_empty() {
                     Iron::new(handler).http(&CONFIGS.host_addr).unwrap()
                 } else {
                     let mut password = String::new();
                     println!("Say the password to use the identity {}:",
-                        &CONFIGS.ssh_identity_path);
+                        &CONFIGS.ssl_identity_path);
                     let _ = io::stdin().read_line(&mut password);
-                    let ssl = NativeTlsServer::new(&CONFIGS.ssh_identity_path,
+                    let ssl = NativeTlsServer::new(&CONFIGS.ssl_identity_path,
                         &password).unwrap();
 
                     Iron::new(handler).https(&CONFIGS.host_addr, ssl).unwrap()
