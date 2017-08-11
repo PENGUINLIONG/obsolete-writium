@@ -129,19 +129,18 @@ impl WritusServer {
         }
         // Only GET method is allowed.
         if req.method != Method::Get {
-            info!("Invalid HTTP method.");
+            warn!("Invalid HTTP method.");
             return gen_error(status::MethodNotAllowed);
         }
         // $path is guaranteed to have at least 1 element.
         let path = req.url.path();
-        info!("Url of incoming request: {}", req.url);
+        info!("Request for {} from {}.", req.url, req.remote_addr);
         // Assign different search directory for different root. If the requested
         // thing doesn't exist, ignore with 404 returned.
         let search_dir = path.get(0).unwrap().to_owned();
         // Read data from storage.
         match map_search_dir(&search_dir) {
             Some(dir) => {
-                info!("Search directory is {}.", search_dir);
                 self.make_response_for_dir(
                     dir.to_owned(),
                     path[1..].join("/"),
@@ -149,7 +148,6 @@ impl WritusServer {
                 )
             },
             None => {
-                info!("Search directory is root.", );
                 self.make_response_for_root(
                     path.join("/"),
                     req.url.query()
@@ -159,26 +157,24 @@ impl WritusServer {
     }
 
     fn response(&self, req: &mut Request) -> IronResult<Response> {
-        info!("-- Response Begin --");
         let res = Ok(self.make_response(&req));
-        info!("-- Response End --");
         return res;
     }
 }
 
-/// Writus controller.
-pub struct Writus {
+/// Writium controller.
+pub struct Writium {
     shared: Arc<RwLock<WritusServer>>,
     listening: iron::Listening,
 }
-impl Writus {
-    pub fn new() -> Writus {
+impl Writium {
+    pub fn new() -> Writium {
         // Use Rwlock to ensure there is no read / write conflicts
         let shared = Arc::new(RwLock::new(WritusServer {
             cached_articles: resource::gen_cache(),
         }));
         let shared_remote = shared.clone();
-        Writus {
+        Writium {
             listening: Iron::new(move |req: &mut Request| {
                 if let Ok(locked) = shared_remote.read() {
                     (*locked).response(req)
@@ -232,7 +228,7 @@ impl Writus {
         }
     }
 }
-impl Drop for Writus {
+impl Drop for Writium {
     fn drop(&mut self) {
         resource::remove_cache();
         self.close();

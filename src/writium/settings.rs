@@ -3,11 +3,11 @@ use std::path::Path;
 use std::process::exit;
 use std::collections::HashMap;
 
-use writus::json::object::Object;
+use writium::json::object::Object;
 
-use writus::getopts::{Matches, Options};
+use writium::getopts::{Matches, Options};
 
-use writus::resource;
+use writium::resource;
 
 pub struct WritusConfigs {
     /// Host server address or domain. Must include port number.
@@ -137,7 +137,7 @@ impl WritusConfigs {
             Some((options, matches)) => {
                 if matches.opt_present("h") {
                     println!("{}", options
-                        .usage(&"Usage: writus CONFIG_FILE [options]"));
+                        .usage(&"Usage: writium CONFIG_FILE [options]"));
                     exit(0);
                 }
                 if matches.free.is_empty() {

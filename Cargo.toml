@@ -1,5 +1,5 @@
 [package]
-name = "writus"
+name = "writium"
 version = "0.1.0"
 authors = ["PENGUINLIONG <admin@penguinliong.moe>"]
 description = "Static article host based on iron."

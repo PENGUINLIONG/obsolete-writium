@@ -6,12 +6,12 @@ extern crate log;
 #[macro_use]
 extern crate path_buf;
 
-mod writus;
+mod writium;
 
-use writus::Writus;
+use writium::Writium;
 
 fn main() {
     let _ = env_logger::init();
-    let mut instance = Writus::new();
+    let mut instance = Writium::new();
     instance.process_commands();
 }

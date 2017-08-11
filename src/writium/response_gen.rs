@@ -1,9 +1,9 @@
-use writus::iron::prelude::*;
-use writus::iron::headers::{ContentType};
-use writus::iron::status;
+use writium::iron::prelude::*;
+use writium::iron::headers::{ContentType};
+use writium::iron::status;
 
-use writus::resource;
-use writus::settings::CONFIGS;
+use writium::resource;
+use writium::settings::CONFIGS;
 
 /// Map error code to error literal.
 fn map_error_code(code: status::Status) -> String {

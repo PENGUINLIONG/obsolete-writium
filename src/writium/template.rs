@@ -5,11 +5,11 @@ use std::io;
 use std::path::Path;
 use std::time::SystemTime;
 
-use writus::chrono;
-use writus::chrono::Utc;
+use writium::chrono;
+use writium::chrono::Utc;
 
-use writus::resource;
-use writus::settings::CONFIGS;
+use writium::resource;
+use writium::settings::CONFIGS;
 
 pub struct TemplateVariables {
     vars: BTreeMap<String, String>,

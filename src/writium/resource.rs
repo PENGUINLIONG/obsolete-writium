@@ -5,16 +5,16 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::path::Path;
 
-use writus::chrono::{DateTime, Utc};
+use writium::chrono::{DateTime, Utc};
 
-use writus::json;
-use writus::json::JsonValue;
-use writus::json::object::Object;
+use writium::json;
+use writium::json::JsonValue;
+use writium::json::object::Object;
 
-use writus::markdown;
+use writium::markdown;
 
-use writus::settings::CONFIGS;
-use writus::template::TemplateVariables;
+use writium::settings::CONFIGS;
+use writium::template::TemplateVariables;
 
 pub enum Resource {
     Material {
@@ -309,7 +309,7 @@ fn gen_article_cache() -> CachedArticles {
                 }
             }
         },
-        _ => warn!("Unable to read from post directory."),
+        _ => error!("Unable to read from post directory."),
     }
     map
 }
@@ -330,10 +330,10 @@ fn gen_index_page_cache(cached: &CachedArticles, page: u32) {
         Ok(mut file) => {
             match file.write(filled.as_bytes()) {
                 Ok(_) => info!("Generated cache: {}", &file_name),
-                Err(_) => warn!("Failed to generate cache: {}", &file_name),
+                Err(_) => error!("Failed to generate cache: {}", &file_name),
             }
         },
-        Err(_) => warn!("Unable to create cache file: {}", &file_name),
+        Err(_) => error!("Unable to create cache file: {}", &file_name),
     };
 }
 
@@ -376,7 +376,7 @@ pub fn remove_cache() {
     info!("Removing all cache.");
     let path = Path::new(&CONFIGS.cache_dir);
     if let Err(_) = fs::remove_dir_all(path) {
-        warn!("Unable to remove cache.");
+        error!("Unable to remove cache.");
     }
 }
 
