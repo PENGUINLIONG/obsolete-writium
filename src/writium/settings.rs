@@ -10,8 +10,11 @@ use writium::getopts::{Matches, Options};
 use writium::resource;
 
 pub struct WritusConfigs {
-    /// Host server address or domain. Must include port number.
+    /// Host server address or domain for HTTP. Must include port number.
     pub host_addr: String,
+    /// Host server address or domain for HTTPS. Must include port number.
+    /// This field will not be used unless ssl_identity_path is not empty.
+    pub host_addr_secure: String,
 
     /// The directory where posts located.
     pub post_dir: String,
@@ -45,17 +48,25 @@ pub struct WritusConfigs {
     
     /// Path to SSL identity.
     /// How to generate:
+    /// Sign and use your own certificate:
     /// ```bash
     /// openssl req -x509 -newkey rsa:4096 -nodes -keyout localhost.key -out localhost.crt -days 3650
     /// openssl pkcs12 -export -out identity.p12 -inkey localhost.key -in localhost.crt --password PASSWORD
     /// ```
+    /// In case you use Let's Encrypt:
+    /// ```bash
+    /// openssl pkcs12 -export -in fullchain.pem -inkey privkey.pem -out identity.p12 -name writium -CAfile chain.pem -caname root
+    /// ```
     /// And you have your identity `identity.p12` now.
     pub ssl_identity_path: String,
+    /// PASSWORD.
+    pub ssl_password: String,
 }
 impl WritusConfigs {
     fn new() -> WritusConfigs {
         WritusConfigs {
             host_addr: String::new(),
+            host_addr_secure: String::new(),
 
             post_dir: String::new(),
             error_dir: String::new(),
@@ -73,6 +84,7 @@ impl WritusConfigs {
             digests_per_page: 0,
 
             ssl_identity_path: String::new(),
+            ssl_password: String::new(),
         }
     }
     pub fn from_args() -> WritusConfigs {
@@ -117,6 +129,7 @@ impl WritusConfigs {
             }
 
             configs.host_addr = must_have(&mut obj, "hostAddr");
+            configs.host_addr_secure = must_have(&mut obj, "hostAddrSecure");
 
             configs.post_dir = must_have(&mut obj, "postDir");
             configs.error_dir = must_have(&mut obj, "errorDir");
@@ -144,6 +157,8 @@ impl WritusConfigs {
 
             configs.ssl_identity_path =
                 have_or(&mut obj, "sslIdentityPath", "");
+            configs.ssl_password =
+                have_or(&mut obj, "sslPassword", "");
         }
 
         let mut rv = WritusConfigs::new();

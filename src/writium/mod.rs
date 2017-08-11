@@ -168,6 +168,7 @@ impl WritiumServer {
 pub struct Writium {
     shared: Arc<RwLock<WritiumServer>>,
     listening: iron::Listening,
+    ssl_listening: Option<iron::Listening>,
 }
 impl Writium {
     pub fn new() -> Writium {
@@ -185,24 +186,45 @@ impl Writium {
             }
         };
         Writium {
-            listening: if CONFIGS.ssl_identity_path.is_empty() {
-                    Iron::new(handler).http(&CONFIGS.host_addr).unwrap()
+            ssl_listening:
+                if CONFIGS.ssl_identity_path.is_empty() {
+                    None
                 } else {
-                    let mut password = String::new();
-                    println!("Say the password to use the identity {}:",
-                        &CONFIGS.ssl_identity_path);
-                    let _ = io::stdin().read_line(&mut password);
-                    let ssl = NativeTlsServer::new(&CONFIGS.ssl_identity_path,
-                        &password).unwrap();
+                    info!("Using ssl identity: {}", &CONFIGS.ssl_identity_path);
+                    let ssl = NativeTlsServer::new(
+                        &CONFIGS.ssl_identity_path,
+                        &CONFIGS.ssl_password
+                    ).unwrap();
 
-                    Iron::new(handler).https(&CONFIGS.host_addr, ssl).unwrap()
+                    let shared_remote = shared.clone();
+                    let handler = move |req: &mut Request| {
+                        if let Ok(locked) = shared_remote.read() {
+                            (*locked).response(req)
+                        } else {
+                            error!("Unable to read-lock.");
+                            Ok(iron::Response::with((iron::status::InternalServerError)))
+                        }
+                    };
+
+                    Some(
+                        Iron::new(handler)
+                            .https(&CONFIGS.host_addr_secure, ssl)
+                            .unwrap()
+                    )
                 },
+            listening:
+                Iron::new(handler)
+                    .http(&CONFIGS.host_addr)
+                    .unwrap(),
             shared: shared,
         }
     }
 
     fn close(&mut self) {
         let _ = self.listening.close();
+        if let Some(ref mut sl) = self.ssl_listening {
+            let _ = sl.close();
+        }
     }
 
     fn interpret_command(&mut self, command: &str, args: &[&str]) -> bool {

@@ -60,13 +60,13 @@ impl TemplateVariables {
                         if parts[0] == "frag" {
                             // Insert fragment.
                             let frag_path = parts[1].trim();
-                            info!("Inline fragment: {}", frag_path);
+                            debug!("Inline fragment: {}", frag_path);
                             rv += &self.get_fragment(Path::new(frag_path))
                                 .unwrap_or_default();
                         } else if parts[0] == "var" {
                             // Insert variable.
                             let var_name = parts[1].trim();
-                            info!("Insert variable: {}", var_name);
+                            debug!("Insert variable: {}", var_name);
                             if let Some(st) = self.get(var_name) {
                                 rv += st;
                             }
