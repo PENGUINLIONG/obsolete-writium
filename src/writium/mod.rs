@@ -4,6 +4,7 @@ extern crate json;
 extern crate getopts;
 extern crate hyper_native_tls;
 extern crate markdown;
+extern crate url;
 
 use std::io;
 use std::path::Path;
@@ -129,6 +130,9 @@ impl WritiumServer {
                 _ => None,
             }
         }
+
+        info!("Request for {} from {}.", req.url, req.remote_addr);
+        
         // Only GET method is allowed.
         if req.method != Method::Get {
             warn!("Invalid HTTP method.");
@@ -136,7 +140,6 @@ impl WritiumServer {
         }
         // $path is guaranteed to have at least 1 element.
         let path = req.url.path();
-        info!("Request for {} from {}.", req.url, req.remote_addr);
         // Assign different search directory for different root. If the requested
         // thing doesn't exist, ignore with 404 returned.
         let search_dir = path.get(0).unwrap().to_owned();
@@ -185,38 +188,45 @@ impl Writium {
                 Ok(iron::Response::with((iron::status::InternalServerError)))
             }
         };
-        Writium {
-            ssl_listening:
-                if CONFIGS.ssl_identity_path.is_empty() {
-                    None
-                } else {
-                    info!("Using ssl identity: {}", &CONFIGS.ssl_identity_path);
-                    let ssl = NativeTlsServer::new(
-                        &CONFIGS.ssl_identity_path,
-                        &CONFIGS.ssl_password
-                    ).unwrap();
-
-                    let shared_remote = shared.clone();
-                    let handler = move |req: &mut Request| {
-                        if let Ok(locked) = shared_remote.read() {
-                            (*locked).response(req)
-                        } else {
-                            error!("Unable to read-lock.");
-                            Ok(iron::Response::with((iron::status::InternalServerError)))
-                        }
-                    };
-
-                    Some(
-                        Iron::new(handler)
-                            .https(&CONFIGS.host_addr_secure, ssl)
-                            .unwrap()
-                    )
-                },
-            listening:
-                Iron::new(handler)
+        // If `ssl_identity_path` is empty, there is no identity provided.
+        // So SSL is disabled, run only HTTP server.
+        if CONFIGS.ssl_identity_path.is_empty() {
+            Writium {
+                ssl_listening: None,
+                listening: Iron::new(handler)
                     .http(&CONFIGS.host_addr)
                     .unwrap(),
-            shared: shared,
+                shared: shared,
+            }
+        }
+        // If identity is reachable, run SSL server to respond to all request
+        // while all HTTP requests are 301ed to HTTPS server.
+        else {
+            let ssl = NativeTlsServer::new(
+                &CONFIGS.ssl_identity_path,
+                &CONFIGS.ssl_password
+            ).unwrap();
+
+            Writium {
+                ssl_listening: Some(
+                    Iron::new(handler)
+                        .https(&CONFIGS.host_addr_secure, ssl)
+                        .unwrap()
+                ),
+                listening: Iron::new(move |req: &mut Request|{
+                    info!("Upgrading request for {} from {} to HTTPS.",
+                        req.url, req.remote_addr);
+                    let mut res: Response =
+                        iron::Response::with((status::MovedPermanently));
+                    let mut url: url::Url = req.url.clone().into();
+                    let _ = url.set_scheme("https");
+                    res.headers.set_raw("Location",
+                        vec![url.as_str().as_bytes().to_owned() as Vec<u8>]);
+                    Ok(res)
+                    }).http(&CONFIGS.host_addr)
+                        .unwrap(),
+                shared: shared,
+            }
         }
     }
 
