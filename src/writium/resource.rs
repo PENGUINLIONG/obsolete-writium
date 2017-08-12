@@ -418,6 +418,7 @@ pub fn get_material(local_path: &Path, media_type: &str) -> Option<Resource> {
     }
 }
 pub fn get_article(local_path: &Path) -> Option<Resource> {
+    if !local_path.is_dir() { return None; }
     let mut vars = get_template_vars(local_path);
     gen_article_given_vars(local_path, &mut vars)
 }
