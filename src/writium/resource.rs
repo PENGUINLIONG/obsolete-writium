@@ -40,7 +40,7 @@ pub type CachedArticles = BTreeMap<DateTime<Utc>, String>;
 /// Some(~) will be returned if the requested resource is successfully read.
 /// None, otherwise.
 pub fn load_resource(local_path: &Path) -> Option<Vec<u8>> {
-    info!("Looking for file in local storage: {:?}", local_path);
+    debug!("Looking for file in local storage: {:?}", local_path);
     if let Ok(mut file) = File::open(&local_path) {
         // Fetch content.
         let mut content = Vec::<u8>::new();
@@ -53,7 +53,7 @@ pub fn load_resource(local_path: &Path) -> Option<Vec<u8>> {
     }
 }
 pub fn load_text_resource(local_path: &Path) -> Option<String> {
-    info!("Looking for text file in local storage: {:?}", local_path);
+    debug!("Looking for text file in local storage: {:?}", local_path);
     if let Ok(mut file) = File::open(&local_path) {
         // Fetch content.
         let mut content = String::new();

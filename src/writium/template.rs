@@ -39,7 +39,7 @@ impl TemplateVariables {
     }
 
     pub fn fill_template(&self, template: &str) -> Option<String> {
-        info!("Filling template.");
+        debug!("Filling template.");
         let mut template = template.to_owned();
         let mut rv = String::new();
         loop {
