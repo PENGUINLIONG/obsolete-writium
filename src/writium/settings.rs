@@ -165,12 +165,12 @@ impl WritusConfigs {
         match match_args() {
             Some((options, matches)) => {
                 if matches.opt_present("h") {
-                    println!("{}", options
+                    error!("{}", options
                         .usage(&"Usage: writium CONFIG_FILE [options]"));
                     exit(0);
                 }
                 if matches.free.is_empty() {
-                    println!("No configuration file given.");
+                    error!("No configuration file given.");
                     exit(1);
                 }
                 let path = &matches.free[0];

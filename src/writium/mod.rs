@@ -1,4 +1,4 @@
-extern crate chrono;
+pub use super::chrono;
 extern crate iron;
 extern crate json;
 extern crate getopts;
