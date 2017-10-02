@@ -5,13 +5,12 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::path::Path;
 
-use writium::chrono::{DateTime, Utc};
+use super::super::{chrono, json, markdown};
 
-use writium::json;
-use writium::json::JsonValue;
-use writium::json::object::Object;
+use chrono::{DateTime, Utc};
 
-use writium::markdown;
+use json::JsonValue;
+use json::object::Object;
 
 use writium::settings::CONFIGS;
 use writium::template::TemplateVariables;

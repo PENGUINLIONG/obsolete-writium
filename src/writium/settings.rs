@@ -3,9 +3,11 @@ use std::path::Path;
 use std::process::exit;
 use std::collections::HashMap;
 
-use writium::json::object::Object;
+use super::super::{json, getopts};
 
-use writium::getopts::{Matches, Options};
+use json::object::Object;
+
+use getopts::{Matches, Options};
 
 use writium::resource;
 

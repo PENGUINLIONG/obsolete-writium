@@ -1,11 +1,17 @@
 extern crate chrono;
 extern crate env_logger;
+extern crate getopts;
+extern crate hyper_native_tls;
+extern crate iron;
+extern crate json;
 #[macro_use]
 extern crate lazy_static;
 #[macro_use]
 extern crate log;
+extern crate markdown;
 #[macro_use]
 extern crate path_buf;
+extern crate url;
 
 use std::env;
 

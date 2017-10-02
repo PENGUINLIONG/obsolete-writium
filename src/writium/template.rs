@@ -5,8 +5,8 @@ use std::io;
 use std::path::Path;
 use std::time::SystemTime;
 
-use writium::chrono;
-use writium::chrono::Utc;
+use super::super::chrono;
+use chrono::Utc;
 
 use writium::resource;
 use writium::settings::CONFIGS;

@@ -1,20 +1,14 @@
-pub use super::chrono;
-extern crate iron;
-extern crate json;
-extern crate getopts;
-extern crate hyper_native_tls;
-extern crate markdown;
-extern crate url;
-
 use std::io;
 use std::path::Path;
 use std::sync::{Arc, RwLock};
 
-use self::iron::prelude::*;
-use self::iron::method::Method;
-use self::iron::status;
+use super::{iron, url};
 
-use self::hyper_native_tls::NativeTlsServer;
+use iron::prelude::*;
+use iron::method::Method;
+use iron::status;
+
+use hyper_native_tls::NativeTlsServer;
 
 mod resource;
 mod response_gen;
