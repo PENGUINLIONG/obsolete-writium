@@ -27,7 +27,11 @@ impl TemplateVariables {
             Some(j) => j,
             None => return,
         };
-        for (key, val) in metadata.iter() {
+        let map = match metadata.as_object() {
+            Some(map) => map,
+            _ => return,
+        };
+        for (key, val) in map {
             self.insert(key.to_owned(), val.as_str().unwrap().to_owned());
         }
     }

@@ -1,4 +1,3 @@
-use super::super::iron;
 use iron::prelude::*;
 use iron::headers::{ContentType};
 use iron::status;

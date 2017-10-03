@@ -3,14 +3,17 @@ extern crate env_logger;
 extern crate getopts;
 extern crate hyper_native_tls;
 extern crate iron;
-extern crate json;
 #[macro_use]
 extern crate lazy_static;
 #[macro_use]
 extern crate log;
 extern crate markdown;
-#[macro_use]
+#[macro_use(path_buf)]
 extern crate path_buf;
+extern crate serde;
+extern crate serde_json;
+#[macro_use]
+extern crate serde_derive;
 extern crate url;
 
 use std::env;
@@ -31,7 +34,9 @@ fn main() {
     if env::var("RUST_LOG").is_ok() {
        builder.parse(&env::var("RUST_LOG").unwrap());
     }
-    builder.init();
+    if let Err(_) = builder.init() {
+        panic!("Initialization failed!");
+    };
 
     let mut instance = Writium::new();
     instance.process_commands();

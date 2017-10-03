@@ -1,11 +1,8 @@
 use std::env::args;
 use std::path::Path;
 use std::process::exit;
-use std::collections::HashMap;
 
-use super::super::{json, getopts};
-
-use json::object::Object;
+use serde_json::value::Value;
 
 use getopts::{Matches, Options};
 
@@ -101,66 +98,65 @@ impl WritusConfigs {
             }
         }
 
-        fn fill_setting(configs: &mut WritusConfigs, object: &Object) {
+        fn fill_setting(configs: &mut WritusConfigs, obj: &Value) {
             #[inline]
-            fn must_have(obj: &mut HashMap<&str, String>, name: &str)
+            fn must_have(obj: &Value, name: &str)
                 -> String {
-                match obj.remove(name) {
-                    Some(val) => val,
-                    None => {
+                match obj.get(name) {
+                    Some(&Value::String(ref val)) => val,
+                    _ => {
                         error!("\"{}\" is needed but we don't have it.", name);
                         exit(1);
                     },
-                }
+                }.to_owned()
             }
             #[inline]
-            fn have_or(obj: &mut HashMap<&str, String>, name: &str, def: &str)
+            fn have_or(obj: &Value, name: &str, def: &str)
                 -> String {
-                match obj.remove(name) {
-                    Some(val) => val,
-                    None => {
+                match obj.get(name) {
+                    Some(&Value::String(ref val)) => val,
+                    _ => {
                         info!("\"{}\" is filled by default: {}", name, def);
-                        def.to_owned()
+                        def
                     },
-                }
+                }.to_owned()
             }
 
-            let mut obj = HashMap::new();
-            for (key, val) in object.iter() {
-                obj.insert(key, val.to_string());
-            }
+            configs.host_addr = must_have(&obj, "hostAddr");
+            configs.host_addr_secure = must_have(&obj, "hostAddrSecure");
 
-            configs.host_addr = must_have(&mut obj, "hostAddr");
-            configs.host_addr_secure = must_have(&mut obj, "hostAddrSecure");
+            configs.post_dir = must_have(&obj, "postDir");
+            configs.error_dir = must_have(&obj, "errorDir");
+            configs.template_dir = must_have(&obj, "templateDir");
+            configs.static_dir = must_have(&obj, "staticDir");
+            configs.root_dir = must_have(&obj, "rootDir");
 
-            configs.post_dir = must_have(&mut obj, "postDir");
-            configs.error_dir = must_have(&mut obj, "errorDir");
-            configs.template_dir = must_have(&mut obj, "templateDir");
-            configs.static_dir = must_have(&mut obj, "staticDir");
-            configs.root_dir = must_have(&mut obj, "rootDir");
-
-            configs.cache_dir = must_have(&mut obj, "cacheDir");
+            configs.cache_dir = must_have(&obj, "cacheDir");
 
             configs.digest_template_path =
-                have_or(&mut obj, "digestTemplatePath", "digest.html");
+                have_or(&obj, "digestTemplatePath", "digest.html");
             configs.index_template_path =
-                have_or(&mut obj, "indexTemplatePath", "index.html");
+                have_or(&obj, "indexTemplatePath", "index.html");
             configs.pagination_template_path =
-                have_or(&mut obj, "paginationTemplatePath", "pagination.html");
+                have_or(&obj, "paginationTemplatePath", "pagination.html");
             configs.post_template_path =
-                have_or(&mut obj, "postTemplatePath", "post.html");
+                have_or(&obj, "postTemplatePath", "post.html");
 
-            configs.digests_per_page = match obj.get("digestsPerPage")
-                .unwrap_or(&"5".to_owned())
-                .parse::<u32>() {
-                Ok(v) => v,
-                Err(_) => 5,
-            };
+            {
+                let dpp_str = match obj.get("digestsPerPage") {
+                    Some(&Value::String(ref string)) => string,
+                    _ => "5",
+                };
+                configs.digests_per_page = match dpp_str.parse::<u32>() {
+                    Ok(v) => v,
+                    Err(_) => 5,
+                };
+            }
 
             configs.ssl_identity_path =
-                have_or(&mut obj, "sslIdentityPath", "");
+                have_or(&obj, "sslIdentityPath", "");
             configs.ssl_password =
-                have_or(&mut obj, "sslPassword", "");
+                have_or(&obj, "sslPassword", "");
         }
 
         let mut rv = WritusConfigs::new();

@@ -5,12 +5,10 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::path::Path;
 
-use super::super::{chrono, json, markdown};
-
 use chrono::{DateTime, Utc};
-
-use json::JsonValue;
-use json::object::Object;
+use markdown;
+use serde_json;
+use serde_json::Value;
 
 use writium::settings::CONFIGS;
 use writium::template::TemplateVariables;
@@ -64,10 +62,10 @@ pub fn load_text_resource(local_path: &Path) -> Option<String> {
         None
     }
 }
-pub fn load_json_object(local_path: &Path) -> Option<Object> {
+pub fn load_json_object(local_path: &Path) -> Option<Value> {
     match load_text_resource(local_path) {
-        Some(s) => match json::parse(&s) {
-            Ok(JsonValue::Object(obj)) => Some(obj),
+        Some(s) => match serde_json::from_str(&s) {
+            Ok(obj) => Some(obj),
             _ => None,
         },
         None => None,
