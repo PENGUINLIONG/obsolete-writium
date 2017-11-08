@@ -7,16 +7,18 @@ license = "MIT"
 repository = "https://github.com/PENGUINLIONG/writium"
 
 [dependencies]
-chrono = "0.4"
-getopts = "0.2"
-iron = "0.5"
-serde = "1.0"
-serde_derive = "1.0"
-serde_json = "1.0"
+# Web service.
 hyper-native-tls = "0.2"
-lazy_static = "0.2"
-markdown = { git = "https://github.com/PENGUINLIONG/markdown.rs", branch = "utf8-fix" }
-log = "0.3"
-env_logger = "0.4"
-path_buf = "0.1"
+iron = "0.5"
 url = "1.5"
+
+# Serde.
+serde = "1.0"
+serde_json = "1.0"
+
+# Logging.
+env_logger = "0.4"
+log = "0.3"
+
+# Cache system.
+queue = "*"
