@@ -16,7 +16,7 @@ pub type ApiDependencies = &'static[&'static[&'static str]];
 fn gen_not_implemented() -> Response {
     Response::Failed(status::MethodNotAllowed, NOT_SUPPORTED)
 }
-pub trait Api: Send + Sync {
+pub trait Api: 'static + Send + Sync {
     /// Name of API. It identifies an API and allow Writium to route by URL path
     /// segments.
     fn name(&self) -> ApiName;

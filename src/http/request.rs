@@ -1,4 +1,3 @@
-// TODO: Add percent code decoding.
 use std::io::Read;
 use std::net::SocketAddr;
 use ::serde_json as json;
@@ -83,30 +82,7 @@ impl Request {
     pub fn content_mut(&mut self) -> Option<&mut Json> {
         self.content.as_mut()
     }
-    fn collect_queries(&mut self, query: Option<&str>) {
-        if let Some(query) = query {
-            let pairs = query[1..].split('&');
-            for pair in pairs {
-                let mut key_val = pair.split('=');
-                // Ignore invalid pair.
-                let key = if let Some(key) = key_val.next() { key }
-                    else { continue };
-                let val = if let Some(val) = key_val.next() { val }
-                    else { continue };
-                if key_val.next().is_some() { continue }
-                self.queries.push((key.to_string(), val.to_string()));
-            }
-        }
-    }
-    fn collect_path_segments(&mut self, path: &str) {
-        self.path = if path.starts_with('/') {
-            path[1..].split('/')
-                .map(|x| x.to_string())
-                .collect()
-        } else {
-            Vec::<String>::new()
-        }
-    }
+    
 
     pub fn from_iron_request(req: &mut IronRequest) -> Request {
         let url = req.url.as_ref();
@@ -122,8 +98,10 @@ impl Request {
                     None
                 },
         };
-        rv.collect_path_segments(url.path());
-        rv.collect_queries(url.query());
+        if let Some(pth) = url.path_segments() {
+            rv.path.extend(pth.map(|x| x.into()));
+        }
+        rv.queries.extend(url.query_pairs().map(|(x, y)| (x.into_owned(), y.into_owned()) ));
         rv
     }
 }

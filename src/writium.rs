@@ -51,6 +51,11 @@ impl Writium {
     pub fn extra_mut(&mut self) -> &mut HashMap<String, String> {
         &mut self.extra
     }
+
+    pub fn bind<A: Api + 'static>(&mut self, api: A) -> &mut Writium {
+        self.ns.bind(api);
+        self
+    }
 }
 impl Handler for Writium {
     fn handle(&self, req: &mut IronRequest) -> IronResult<IronResponse> {

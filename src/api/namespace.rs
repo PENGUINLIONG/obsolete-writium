@@ -22,9 +22,9 @@ impl Namespace {
         }
     }
 
-    #[allow(dead_code)] // This is hardly used inside Writium itself.
-    fn bind(&mut self, api: Box<Api>) {
-        self.apis.push(api);
+    pub fn bind<A: Api>(&mut self, api: A) -> &mut Namespace {
+        self.apis.push(Box::new(api) as Box<Api>);
+        self
     }
 }
 impl Api for Namespace {

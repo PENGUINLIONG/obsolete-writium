@@ -1,5 +1,5 @@
 [package]
-name = "writium"
+name = "writium-framework"
 version = "0.1.0"
 authors = ["PENGUINLIONG <admin@penguinliong.moe>"]
 description = "Static article host based on iron."
@@ -9,7 +9,7 @@ repository = "https://github.com/PENGUINLIONG/writium"
 [dependencies]
 # Web service.
 hyper-native-tls = "0.2"
-iron = "0.5"
+iron = "0.6"
 url = "1.5"
 
 # Serde.
