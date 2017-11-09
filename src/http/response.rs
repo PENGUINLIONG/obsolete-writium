@@ -11,6 +11,7 @@ use ::http::status::Status;
 /// or an local file requested was used but not in shared mode. The second term
 /// is a short description of critical information about the failure. The
 /// description will be logged on warning level.
+#[derive(Clone, Debug)]
 pub enum Response {
     Done(Status, String),
     Failed(Status, &'static str),

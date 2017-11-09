@@ -14,8 +14,8 @@ pub use writium::Writium;
 pub mod api;
 pub mod http;
 
-mod prelude {
+pub mod prelude {
     pub use writium::Writium;
-    pub use api::{Api, Cache, Namespace};
+    pub use api::{Api, ApiDependencies, ApiName, Cache, Namespace};
     pub use http::{Request, Response};
 }

@@ -69,4 +69,76 @@ impl<T, Extra> Cache<T, Extra> {
         }
         Some(self.cache.lock().unwrap().last().unwrap().1.clone())
     }
+
+    /// The maximum number of items can be cached at a same time.
+    pub fn capacity(&self) -> usize {
+        // Only if the thread is poisoned `cache` will be unavailable.
+        self.cache.lock().unwrap().capacity()
+    }
+
+    /// Get the number of items cached.
+    pub fn len(&self) -> usize {
+        // Only if the thread is poisoned `cache` will be unavailable.        
+        self.cache.lock().unwrap().len()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    type TestCache = super::Cache<&'static str, &'static[&'static str]>;
+
+    fn make_cache(fail: bool) -> TestCache {
+        let cache = TestCache::new(3,
+            if fail { |_, _| None }
+            else { |extra, id| Some(extra[id.parse::<usize>().unwrap()]) },
+            |_, _, cached| *cached = "disposed",
+            &["cache0", "cache1", "cache2"],
+        );
+        cache
+    }
+
+    #[test]
+    fn test_cache() {
+        let cache = make_cache(false);
+        let tmp = cache.get("0").unwrap();
+        let temp = tmp.read().unwrap();
+        assert_eq!(*temp, "cache0");
+        let tmp = cache.get("1").unwrap();
+        let temp = tmp.read().unwrap();
+        assert_eq!(*temp, "cache1");
+        let tmp = cache.get("2").unwrap();
+        let temp = tmp.read().unwrap();
+        assert_eq!(*temp, "cache2");
+    }
+    #[test]
+    fn test_cache_failure() {
+        let cache = make_cache(true);
+        assert_eq!(cache.get("0").is_none(), true);
+        assert_eq!(cache.get("1").is_none(), true);
+        assert_eq!(cache.get("2").is_none(), true);
+    }
+    #[test]
+    fn test_max_cache() {
+        let cache = make_cache(false);
+        assert_eq!(cache.len(), 0);
+        cache.get("0");
+        assert_eq!(cache.len(), 1);
+        cache.get("1");
+        assert_eq!(cache.len(), 2);
+        cache.get("2");
+        assert_eq!(cache.len(), 3);
+        cache.get("0");
+        assert_eq!(cache.len(), 3);
+    }
+    #[test]
+    fn test_max_cache_failure() {
+        let cache = make_cache(true);
+        assert_eq!(cache.len(), 0);
+        cache.get("0");
+        assert_eq!(cache.len(), 0);
+        cache.get("1");
+        assert_eq!(cache.len(), 0);
+        cache.get("2");
+        assert_eq!(cache.len(), 0);
+    }
 }

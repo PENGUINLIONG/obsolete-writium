@@ -24,21 +24,40 @@ fn body_to_json(body: &mut ::iron::request::Body) -> Option<json::Value> {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct Request {
     method: Method,
-    remote_addr: SocketAddr,
+    remote_addr: Option<SocketAddr>,
     path: Path,
     queries: Queries,
     content: Option<Json>,
 }
 impl Request {
-    #[inline]
-    pub fn method(&self) -> Method {
-        self.method.clone()
+    /// Create a new request object.
+    pub fn new(method: Method) -> Request {
+        Request {
+            method: method,
+            remote_addr: None,
+            path: Vec::new(),
+            queries: Vec::new(),
+            content: None,
+        }
     }
     #[inline]
-    pub fn remote_addr(&self) -> SocketAddr {
-        self.remote_addr.clone()
+    pub fn method(&self) -> &Method {
+        &self.method
+    }
+    #[inline]
+    pub fn method_mut(&mut self) -> &mut Method {
+        &mut self.method
+    }
+    #[inline]
+    pub fn remote_addr(&self) -> Option<&SocketAddr> {
+        self.remote_addr.as_ref()
+    }
+    #[inline]
+    pub fn remote_addr_mut(&mut self) -> Option<&mut SocketAddr> {
+        self.remote_addr.as_mut()
     }
     #[inline]
     pub fn path(&self) -> &Path {
@@ -59,6 +78,10 @@ impl Request {
     #[inline]
     pub fn content(&self) -> Option<&Json> {
         self.content.as_ref()
+    }
+    #[inline]
+    pub fn content_mut(&mut self) -> Option<&mut Json> {
+        self.content.as_mut()
     }
     fn collect_queries(&mut self, query: Option<&str>) {
         if let Some(query) = query {
@@ -90,7 +113,7 @@ impl Request {
         // Iron borrow these stuff by mutable reference.
         let mut rv = Request {
             method: req.method.clone(),
-            remote_addr: req.remote_addr,
+            remote_addr: Some(req.remote_addr),
             path: Vec::new(),
             queries: Vec::new(),
             content: if req.method == Method::Get || req.method == Method::Delete {

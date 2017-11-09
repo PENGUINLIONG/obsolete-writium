@@ -4,6 +4,7 @@ use http::status;
 
 const NOT_SUPPORTED: &str = "not supported";
 
+#[derive(Debug)]
 pub enum RouteHint {
     CallMe(Request),
     NotMe(Request),
@@ -63,11 +64,10 @@ pub trait Api: Send + Sync {
     fn route(&self, mut req: Request) -> Response {
         // Remove path prefix.
         info!("API found: /{}", self.name().join("/"));
-        let path = req.path_mut().remove(self.name().len());
-        let method = req.method();
+        for _ in 0..self.name().len() { req.path_mut().remove(0); }
         use http::method::Method;
         // Dispatch APIs.
-        match req.method() {
+        match req.method().clone() {
             Method::Get =>    self.get   (req),
             Method::Delete => self.delete(req),
             Method::Patch =>  self.patch (req),
@@ -93,4 +93,64 @@ pub trait Api: Send + Sync {
     fn post  (&self, req: Request) -> Response { gen_not_implemented() }
     /// Process PUT    method.
     fn put   (&self, req: Request) -> Response { gen_not_implemented() }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ::http::method::Method;    
+    struct TestApi;
+    impl TestApi { fn new() -> TestApi { TestApi {} } }
+    fn res(answer: &str) -> Response {
+        Response::Done(status::Ok, answer.to_string())
+    }
+    fn req(method: Method) -> Request {
+        let mut rv = Request::new(method);
+        rv.path_mut().push("foo".to_string());
+        rv.path_mut().push("bar".to_string());
+        rv
+    }
+    fn bad_req() -> Request {
+        let mut rv = Request::new(Method::Get);
+        rv.path_mut().push("foo".to_string());
+        rv.path_mut().push("not_so_bar".to_string());
+        rv
+    }
+    impl Api for TestApi {
+        fn name(&self) -> ApiName {
+            &["foo", "bar"]
+        }
+        fn delete(&self, req: Request) -> Response { res("delete") }
+        fn get   (&self, req: Request) -> Response { res("get"   ) }
+        fn post  (&self, req: Request) -> Response { res("post"  ) }
+        fn patch (&self, req: Request) -> Response { res("patch" ) }
+        fn put   (&self, req: Request) -> Response { res("put"   ) }
+    }
+    #[test]
+    fn test_preroute() {
+        let api = TestApi::new();
+        assert_eq!(format!("{:?}", api.preroute(req(Method::Get))),
+            format!("{:?}", RouteHint::CallMe(req(Method::Get))));
+        assert_eq!(format!("{:?}", api.preroute(bad_req())),
+            format!("{:?}", RouteHint::NotMe(bad_req())));
+    }
+    #[test]
+    fn test_route() {
+        fn ast(api: &TestApi, req: &Request, txt: &str) {
+            let left = api.route(req.clone());
+            let right = res(txt);
+            assert_eq!(format!("{:?}", left), format!("{:?}", right));
+        }
+        let api = TestApi::new();
+        ast(&api, &req(Method::Delete), "delete");
+        ast(&api, &req(Method::Get), "get");
+        ast(&api, &req(Method::Post), "post");
+        ast(&api, &req(Method::Patch), "patch");
+        ast(&api, &req(Method::Put), "put");
+    }
+    #[test]
+    fn test_postroute() {
+        let api = TestApi::new();
+        assert_eq!(format!("{:?}", api.postroute(res(""))), format!("{:?}", res("")));
+    }
 }
