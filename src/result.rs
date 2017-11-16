@@ -1,4 +1,3 @@
-use response::HyperResponse;
 use super::{Response, WritiumError};
 
 pub type WritiumResult = Result<Response, WritiumError>;

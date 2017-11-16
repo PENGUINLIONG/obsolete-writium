@@ -1,5 +1,5 @@
 use hyper::StatusCode;
-use super::{Api, Request, Response, WritiumError, WritiumResult};
+use super::{Api, Request, WritiumError, WritiumResult};
 
 /// `Namespace` bind with apis and forms an intermediate layer of API. It self
 /// doesn't do a thing but it will.
@@ -44,7 +44,6 @@ impl Api for Namespace {
                 RouteHint::NotMe(r) => req = r,
             }
         }
-        use hyper::{header, mime};
         WritiumError::new(StatusCode::NotFound, "api not found").into()
     }
 }

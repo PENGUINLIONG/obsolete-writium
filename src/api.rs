@@ -1,6 +1,6 @@
 #![allow(unused_variables)]
 use hyper::{Method, StatusCode};
-use super::{Request, Response, WritiumResult, WritiumError};
+use super::{Request, WritiumResult, WritiumError};
 
 const NOT_SUPPORTED: &str = "not supported";
 

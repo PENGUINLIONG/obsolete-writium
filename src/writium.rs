@@ -2,9 +2,7 @@ use std::collections::{HashMap};
 use request::HyperRequest;
 use hyper::StatusCode;
 use response::HyperResponse;
-use super::{Api, Namespace, Request, Response, WritiumError, WritiumResult};
-
-const MAX_CALL: usize = 100;
+use super::{Api, Namespace, Request, WritiumError, WritiumResult};
 
 pub struct Writium {
     extra: HashMap<String, String>,
@@ -42,7 +40,7 @@ impl Writium {
     pub fn route(&self, req: HyperRequest) -> HyperResponse {
         // No need to check namespace name; no post processing. Safe to route
         // directly.
-        if let Some(mut req) = Request::new(req) {
+        if let Some(req) = Request::new(req) {
             match self._route(req) {
                 Ok(res) => match res.into() {
                     Ok(res) => res,

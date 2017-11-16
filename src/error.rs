@@ -52,7 +52,7 @@ impl Into<HyperResponse> for WritiumError {
     }
 }
 impl From<JsonError> for WritiumError {
-    fn from(err: JsonError) -> WritiumError {
+    fn from(_: JsonError) -> WritiumError {
         WritiumError::new(StatusCode::InternalServerError, "unable to serialize data into json")
     }
 }
