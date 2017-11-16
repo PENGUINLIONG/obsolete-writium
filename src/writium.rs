@@ -1,12 +1,10 @@
 use std::collections::{HashMap};
-use ::iron::headers;
-use ::iron::middleware::Handler;
-use ::iron::IronResult;
-use ::iron::Request as IronRequest;
-use ::iron::Response as IronResponse;
-use ::iron::status;
-use api::{Api, Namespace};
-use http::{Request, Response};
+use request::HyperRequest;
+use hyper::StatusCode;
+use response::HyperResponse;
+use super::{Api, Namespace, Request, Response, WritiumError, WritiumResult};
+
+const MAX_CALL: usize = 100;
 
 pub struct Writium {
     extra: HashMap<String, String>,
@@ -20,28 +18,41 @@ impl Writium {
         }
     }
 
-    fn do_handle(&self, req: &mut IronRequest) -> IronResponse {
-        // Force TLS.
-        if req.url.scheme() == "http" {
-            let mut url: ::url::Url = req.url.clone().into();
-            if let Err(()) = url.set_scheme("htttps") {
-                warn!("Unable to upgrade to HTTPS.");
-                return IronResponse::with(status::InternalServerError)
-            }
-            let mut response = IronResponse::with((status::MovedPermanently));
-            response.headers.set(headers::Location(url.into_string()));
-            return response
+    pub fn _route(&self, req: Request) -> WritiumResult {
+        // Retrieve response.
+        match self.ns.route(req) {
+            // Check if we have to call another place or not.
+            Ok(mut res) =>
+                // An response, we might have to make another call.
+                if let Some(call_req) = res._take_call_request() {
+                    // It's only unwrapped if there is no more calles required.
+                    if let Some(mut cb) = res._take_callback_fn() {
+                        cb.callback(self._route(call_req))
+                    // No need to call back.
+                    } else {
+                        self._route(call_req)
+                    }
+                // Already an error.
+                } else {
+                    Ok(res)
+                },
+            Err(err) => Err(err),
         }
-        let req = Request::from_iron_request(req);
+    }
+    pub fn route(&self, req: HyperRequest) -> HyperResponse {
         // No need to check namespace name; no post processing. Safe to route
         // directly.
-        match self.ns.route(req) {
-            Response::Done(code, content) =>
-                IronResponse::with((code, content)),
-            Response::Failed(code, des) => {
-                warn!("Api call failed: {}", des);
-                IronResponse::with((code, des))
-            },
+        if let Some(mut req) = Request::new(req) {
+            match self._route(req) {
+                Ok(res) => match res.into() {
+                    Ok(res) => res,
+                    // Error may occur on serializing into JSON.
+                    Err(err) => err.into(),
+                },
+                Err(err) => err.into(),
+            }
+        } else {
+            WritiumError::new(StatusCode::BadRequest, "Invalid URL.").into()
         }
     }
 
@@ -52,16 +63,10 @@ impl Writium {
         &mut self.extra
     }
 
-    pub fn bind<A: Api + 'static>(&mut self, api: A) -> &mut Writium {
-        self.ns.bind(api);
-        self
-    }
-}
-impl Handler for Writium {
-    fn handle(&self, req: &mut IronRequest) -> IronResult<IronResponse> {
-        info!("Received request from {} towards: {}", req.remote_addr, req.url);
-        let rv = Ok(self.do_handle(req));
-        info!("Finished request.");
-        rv
+    pub fn bind<A: Api + 'static>(self, api: A) -> Writium {
+        Writium {
+            extra: self.extra,
+            ns: self.ns.bind(api)
+        }
     }
 }

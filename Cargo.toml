@@ -7,18 +7,7 @@ license = "MIT"
 repository = "https://github.com/PENGUINLIONG/writium"
 
 [dependencies]
-# Web service.
-hyper-native-tls = "0.2"
-iron = "0.6"
-url = "1.5"
-
-# Serde.
-serde = "1.0"
-serde_json = "1.0"
-
-# Logging.
-env_logger = "0.4"
+hyper = "0.11"
 log = "0.3"
-
-# Cache system.
-queue = "*"
+url = "*"
+serde_json = "*"

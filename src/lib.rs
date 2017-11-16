@@ -1,21 +1,32 @@
-// Web service.
-extern crate hyper_native_tls;
-extern crate iron;
-extern crate url;
-// Serde.
-extern crate serde;
-extern crate serde_json;
-// Logging.
+pub extern crate hyper;
 #[macro_use]
 extern crate log;
+pub extern crate serde_json;
 
-pub mod writium;
+// Writium.
+mod writium;
+
 pub use writium::Writium;
-pub mod api;
-pub mod http;
 
-pub mod prelude {
-    pub use writium::Writium;
-    pub use api::{Api, ApiDependencies, ApiName, Cache, Namespace};
-    pub use http::{Request, Response, status, method};
-}
+// Api and namespace.
+mod api;
+mod namespace;
+
+pub use api::Api;
+pub use namespace::Namespace;
+
+// Request flow.
+mod callback;
+mod request;
+mod response;
+
+pub use callback::Callback;
+pub use request::Request;
+pub use response::Response;
+
+// Error handling.
+mod error;
+mod result;
+
+pub use error::WritiumError;
+pub use result::WritiumResult;

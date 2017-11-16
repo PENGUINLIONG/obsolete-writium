@@ -1,5 +1,5 @@
-use super::Api;
-use http::{Request, Response, status};
+use hyper::StatusCode;
+use super::{Api, Request, Response, WritiumError, WritiumResult};
 
 /// `Namespace` bind with apis and forms an intermediate layer of API. It self
 /// doesn't do a thing but it will.
@@ -22,7 +22,7 @@ impl Namespace {
         }
     }
 
-    pub fn bind<A: Api>(&mut self, api: A) -> &mut Namespace {
+    pub fn bind<A: Api>(mut self, api: A) -> Namespace {
         self.apis.push(Box::new(api) as Box<Api>);
         self
     }
@@ -35,16 +35,16 @@ impl Api for Namespace {
     /// binding order. The collection routing is short-circuiting, i.e., once a
     /// sub-API responded, the response is returned and the following it won't
     /// check the remaining unchecked sub-apis.
-    fn route(&self, mut req: Request) -> Response {
-        use api::api::RouteHint;
-        // Remove its own name segments.
-        for _ in 1..self.name.len() { req.path_mut().remove(0); }
+    fn route(&self, mut req: Request) -> WritiumResult {
+        use api::RouteHint;
         for api in self.apis.iter() {
             match api.preroute(req) {
-                RouteHint::CallMe(r) => return self.postroute(api.route(r)),
+                RouteHint::CallMe(r) =>
+                    return api.postroute(api.route(r)),
                 RouteHint::NotMe(r) => req = r,
             }
         }
-        Response::Failed(status::NotFound, "api not found")
+        use hyper::{header, mime};
+        WritiumError::new(StatusCode::NotFound, "api not found").into()
     }
 }
