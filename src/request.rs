@@ -1,11 +1,10 @@
 use std::borrow::{Borrow, BorrowMut};
 use std::ops::{Deref, DerefMut};
-use super::hyper::{Body, Uri};
+use hyper::{Body, Headers, Method, Uri};
 
 pub use hyper::Request as HyperRequest;
 
-fn collect_path_segs(uri: &Uri) -> Option<Vec<String>> {
-    let path = uri.path();
+fn collect_path_segs(path: &str) -> Option<Vec<String>> {
     let mut raw_rv = Vec::new();
     if path.as_bytes()[0] == b'/' {
         raw_rv.extend(path[1..].split('/').map(|x| x.to_string()))
@@ -26,22 +25,29 @@ fn collect_path_segs(uri: &Uri) -> Option<Vec<String>> {
 }
 
 pub struct Request {
-    inner: HyperRequest,
+    method: Method,
+    uri: Uri,
     path_segs: Vec<String>,
+    headers: Headers,
+    body: Vec<u8>,
 }
 impl Request {
-    pub fn new(req: HyperRequest) -> Option<Request> {
-        if let Some(segs) = collect_path_segs(req.uri()) {
-            Some(Request {
-                path_segs: segs,
-                inner: req,
-            })
-        } else {
-            None
-        }
+    pub fn new(method: Method, uri: &str) -> Option<Request> {
+        use std::str::FromStr;
+        let uri = if let Ok(u) = Uri::from_str(uri) { u }
+            else { return None };
+        Some(Request {
+            path_segs:
+                if let Some(segs) = collect_path_segs(uri.path()) { segs }
+                else { return None },
+            method: method,
+            uri: uri,
+            headers: Headers::new(),
+            body: Vec::new(),
+        })
     }
-    pub fn body(self) -> Body {
-        self.inner.body()
+    pub fn body(&self) -> &[u8] {
+        self.body()
     }
 
     /// Get the reference to internal path segment record.
@@ -61,46 +67,5 @@ impl Request {
         } else {
             None
         }
-    }
-}
-impl Into<HyperRequest> for Request {
-    fn into(self) -> HyperRequest {
-        self.inner
-    }
-}
-impl Into<::hyper::Body> for Request {
-    fn into(self) -> ::hyper::Body {
-        self.inner.body()
-    }
-}
-impl AsRef<HyperRequest> for Request {
-    fn as_ref(&self) -> &HyperRequest {
-        &self.inner
-    }
-}
-impl AsMut<HyperRequest> for Request {
-    fn as_mut(&mut self) -> &mut HyperRequest {
-        &mut self.inner
-    }
-}
-impl Borrow<HyperRequest> for Request {
-    fn borrow(&self) -> &HyperRequest {
-        &self.inner
-    }
-}
-impl BorrowMut<HyperRequest> for Request {
-    fn borrow_mut(&mut self) -> &mut HyperRequest {
-        &mut self.inner
-    }
-}
-impl Deref for Request {
-    type Target = HyperRequest;
-    fn deref(&self) -> &HyperRequest {
-        &self.inner
-    }
-}
-impl DerefMut for Request {
-    fn deref_mut(&mut self) -> &mut HyperRequest {
-        &mut self.inner
     }
 }
