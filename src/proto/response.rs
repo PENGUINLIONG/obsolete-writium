@@ -1,10 +1,10 @@
-use callback::Callback;
-use error::WritiumError;
-use request::Request;
 use hyper::{Headers, StatusCode};
 use serde_json::Value as Json;
+use callback::Callback;
+use error::WritiumError;
+use proto::request::Request;
 
-pub use super::hyper::Response as HyperResponse;
+pub use hyper::Response as HyperResponse;
 
 pub struct Response {
     status: StatusCode,
@@ -53,10 +53,9 @@ impl Response {
     pub(crate) fn _take_callback_fn(&mut self) -> Option<Box<Callback>> {
         self.callback.take()
     }
-}
-impl Into<Result<HyperResponse, WritiumError>> for Response {
-    fn into(self) -> Result<HyperResponse, WritiumError> {
-        use serde_json::to_string;        
+
+    pub fn try_into_hyper(self) -> Result<HyperResponse, WritiumError> {
+        use serde_json::to_string;
         Ok(HyperResponse::new()
             .with_status(self.status)
             .with_headers(self.headers)

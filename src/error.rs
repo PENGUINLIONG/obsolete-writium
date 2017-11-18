@@ -2,7 +2,7 @@
 use std::fmt::{Debug, Display, Formatter, Result as FormatResult};
 use std::error::Error;
 use serde_json::Error as JsonError;
-use response::HyperResponse;
+use proto::HyperResponse;
 use hyper::header::Header;
 use hyper::{Headers, StatusCode};
 

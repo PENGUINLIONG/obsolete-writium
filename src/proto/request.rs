@@ -1,6 +1,6 @@
-use std::borrow::{Borrow, BorrowMut};
-use std::ops::{Deref, DerefMut};
-use hyper::{Body, Headers, Method, Uri};
+use futures::Future;
+use hyper::{Headers, Method, Uri};
+use hyper::header::Header;
 
 pub use hyper::Request as HyperRequest;
 
@@ -29,7 +29,7 @@ pub struct Request {
     uri: Uri,
     path_segs: Vec<String>,
     headers: Headers,
-    body: Vec<u8>,
+    body: Box<Future<Item=::hyper::Chunk, Error=::hyper::Error>>,
 }
 impl Request {
     pub fn new(method: Method, uri: &str) -> Option<Request> {
@@ -43,11 +43,48 @@ impl Request {
             method: method,
             uri: uri,
             headers: Headers::new(),
-            body: Vec::new(),
+            body: Box::new(::futures::future::ok([].as_ref().into())),
         })
     }
-    pub fn body(&self) -> &[u8] {
-        self.body()
+    pub fn construct(method: Method, uri: Uri, headers: Headers,
+        body: Box<Future<Item=::hyper::Chunk, Error=::hyper::Error>>)
+        -> Option<Request> {
+        Some(Request {
+            path_segs:
+                if let Some(segs) = collect_path_segs(uri.path()) { segs }
+                else { return None },
+            method: method,
+            uri: uri,
+            headers: headers,
+            body: body,
+        })
+    }
+
+    pub fn with_header<H: Header>(mut self, header: H) -> Self {
+        self.headers.set::<H>(header);
+        self
+    }
+    pub fn with_headers(mut self, headers: Headers) -> Self {
+        self.headers = headers;
+        self
+    }
+    pub fn with_body<T>(mut self, body: T) -> Self
+        where ::hyper::Chunk: From<T> {
+        self.body = Box::new(::futures::future::ok(body.into()));
+        self
+    }
+
+    pub fn method(&self) -> &Method {
+        &self.method
+    }
+    pub fn uri(&self) -> &Uri {
+        &self.uri
+    }
+    pub fn headers(&self) -> &Headers {
+        &self.headers
+    }
+    pub fn body(self) -> Box<Future<Item=::hyper::Chunk, Error=::hyper::Error>>{
+        self.body
     }
 
     /// Get the reference to internal path segment record.

@@ -1,8 +1,7 @@
 use std::collections::{HashMap};
-use request::HyperRequest;
-use hyper::StatusCode;
-use response::HyperResponse;
-use super::{Api, Namespace, Request, WritiumError, WritiumResult};
+use proto::{HyperRequest, HyperResponse};
+use super::{Api, ApiResult, Namespace, Request, };
+use futures::{self, Future, Stream};
 
 pub struct Writium {
     extra: HashMap<String, String>,
@@ -16,7 +15,7 @@ impl Writium {
         }
     }
 
-    pub fn _route(&self, req: Request) -> WritiumResult {
+    pub fn _route(&self, req: Request) -> ApiResult {
         // Retrieve response.
         match self.ns.route(req) {
             // Check if we have to call another place or not.
@@ -37,21 +36,21 @@ impl Writium {
             Err(err) => Err(err),
         }
     }
-    pub fn route(&self, req: HyperRequest) -> HyperResponse {
+    pub fn route(&self, req: HyperRequest)
+        -> Box<Future<Item=HyperResponse, Error=::hyper::Error>> {
+        let (method, uri, _, headers, body) = req.deconstruct();
+        // TODO: Deal with that path segments are not parsed.
+        let req = Request::construct(method, uri, headers, Box::new(body.concat2())).unwrap();
         // No need to check namespace name; no post processing. Safe to route
         // directly.
-        if let Some(req) = Request::new(req) {
-            match self._route(req) {
-                Ok(res) => match res.into() {
-                    Ok(res) => res,
-                    // Error may occur on serializing into JSON.
-                    Err(err) => err.into(),
-                },
-                Err(err) => err.into(),
-            }
-        } else {
-            WritiumError::new(StatusCode::BadRequest, "Invalid URL.").into()
-        }
+        Box::new(match self._route(req) {
+            Ok(res) => match res.try_into_hyper() {
+                Ok(res) => futures::future::ok(res),
+                // Error may occur on serializing into JSON.
+                Err(err) => futures::future::ok(err.into()),
+            },
+            Err(err) => futures::future::ok(err.into()),
+        })
     }
 
     pub fn extra(&self) -> &HashMap<String, String> {

@@ -7,6 +7,7 @@ license = "MIT"
 repository = "https://github.com/PENGUINLIONG/writium"
 
 [dependencies]
+futures = "0.1"
 hyper = "0.11"
 log = "0.3"
 url = "*"

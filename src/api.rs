@@ -1,8 +1,20 @@
 #![allow(unused_variables)]
 use hyper::{Method, StatusCode};
-use super::{Request, WritiumResult, WritiumError};
+use super::{Request, Response, WritiumResult, WritiumError};
 
 const NOT_SUPPORTED: &str = "not supported";
+
+pub type ApiResult = WritiumResult<Response>;
+impl From<Response> for ApiResult {
+    fn from(res: Response) -> ApiResult {
+        Ok(res)
+    }
+}
+impl From<WritiumError> for ApiResult {
+    fn from(err: WritiumError) -> ApiResult {
+        Err(err)
+    }
+}
 
 pub enum RouteHint {
     CallMe(Request),
@@ -11,7 +23,7 @@ pub enum RouteHint {
 
 pub type ApiName = &'static[&'static str];
 
-fn gen_not_implemented() -> WritiumResult {
+fn gen_not_implemented() -> ApiResult {
     WritiumError::new(StatusCode::MethodNotAllowed, NOT_SUPPORTED).into()
 }
 pub trait Api: 'static + Send + Sync {
@@ -41,11 +53,11 @@ pub trait Api: 'static + Send + Sync {
     ///
     /// Note: `writium.do_handle(~)` must be updated if its default behavior is
     /// changed.
-    fn route(&self, req: Request) -> WritiumResult {
+    fn route(&self, req: Request) -> ApiResult {
         // Remove path prefix.
         info!("API found: /{}", self.name().join("/"));
         // Dispatch APIs.
-        match req.as_ref().method().clone() {
+        match req.method().clone() {
             Method::Get =>    self.get   (req),
             Method::Delete => self.delete(req),
             Method::Patch =>  self.patch (req),
@@ -57,28 +69,28 @@ pub trait Api: 'static + Send + Sync {
 
     /// Do things after funciton routing, like replaceing a failure with a
     /// default response. By default, it does nothing.
-    fn postroute(&self, res: WritiumResult) -> WritiumResult {
+    fn postroute(&self, res: ApiResult) -> ApiResult {
         res
     }
 
     /// Process DELETE method.
-    fn delete(&self, req: Request) -> WritiumResult {
+    fn delete(&self, req: Request) -> ApiResult {
         gen_not_implemented()
     }
     /// Process GET    method.
-    fn get   (&self, req: Request) -> WritiumResult {
+    fn get   (&self, req: Request) -> ApiResult {
         gen_not_implemented()
     }
     /// Process PATCH  method.
-    fn patch (&self, req: Request) -> WritiumResult {
+    fn patch (&self, req: Request) -> ApiResult {
         gen_not_implemented()
     }
     /// Process POST   method.
-    fn post  (&self, req: Request) -> WritiumResult {
+    fn post  (&self, req: Request) -> ApiResult {
         gen_not_implemented()
     }
     /// Process PUT    method.
-    fn put   (&self, req: Request) -> WritiumResult {
+    fn put   (&self, req: Request) -> ApiResult {
         gen_not_implemented()
     }
 }

@@ -1,5 +1,5 @@
 use hyper::StatusCode;
-use super::{Api, Request, WritiumError, WritiumResult};
+use super::{Api, ApiResult, Request, WritiumError};
 
 /// `Namespace` bind with apis and forms an intermediate layer of API. It self
 /// doesn't do a thing but it will.
@@ -35,7 +35,7 @@ impl Api for Namespace {
     /// binding order. The collection routing is short-circuiting, i.e., once a
     /// sub-API responded, the response is returned and the following it won't
     /// check the remaining unchecked sub-apis.
-    fn route(&self, mut req: Request) -> WritiumResult {
+    fn route(&self, mut req: Request) -> ApiResult {
         use api::RouteHint;
         for api in self.apis.iter() {
             match api.preroute(req) {

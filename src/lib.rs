@@ -1,3 +1,4 @@
+extern crate futures;
 pub extern crate hyper;
 #[macro_use]
 extern crate log;
@@ -10,19 +11,17 @@ pub use writium::Writium;
 
 // Api and namespace.
 mod api;
+mod callback;
 mod namespace;
 
-pub use api::Api;
+pub use api::{Api, ApiResult, RouteHint};
+pub use callback::Callback;
 pub use namespace::Namespace;
 
-// Request flow.
-mod callback;
-mod request;
-mod response;
+// Request flow protocol.
+mod proto;
 
-pub use callback::Callback;
-pub use request::Request;
-pub use response::Response;
+pub use proto::{HyperRequest, HyperResponse, Request, Response};
 
 // Error handling.
 mod error;
