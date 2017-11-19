@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use proto::{HyperRequest, HyperResponse};
-use super::{Api, ApiResult, FutureExt, WritiumResult, Namespace, Request, ok};
+use super::{Api, ApiResult, FutureExt, Namespace, Request, ok};
 use futures::Future;
 
 pub struct Writium {
@@ -13,20 +13,24 @@ impl Writium {
         }
     }
 
-    pub fn route(&self, req: HyperRequest) -> WritiumResult<HyperResponse> {
+    pub fn route(&self, req: HyperRequest)
+        -> Box<Future<Item=HyperResponse, Error=::hyper::Error>> {
         let (method, uri, _, headers, body) = req.deconstruct();
         // TODO: Deal with that path segments are not parsed.
         let req = Request::construct(method, uri, headers, body).unwrap();
         // No need to check namespace name; no post processing. Safe to route
         // directly.
-        _route(self.ns.clone(), req).map(|res|
-                match res.try_into_hyper() {
-                    Ok(res) => res,
+        _route(self.ns.clone(), req).then(|result|
+            -> Result<HyperResponse, ::hyper::Error> {
+            match result {
+                Ok(res) => match res.try_into_hyper() {
+                    Ok(res) => Ok(res),
                     // Error may occur on serializing into JSON.
-                    Err(err) => err.into(),
-                })
-            .map_err(|err| err.into())
-            .into_box()
+                    Err(err) => Ok(err.into()),
+                },
+                Err(e) => Ok(e.into()),
+            }
+        }).into_box()
     }
 
     pub fn bind<A: Api + 'static>(&mut self, api: A) {
