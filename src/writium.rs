@@ -1,7 +1,7 @@
 use std::collections::{HashMap};
 use proto::{HyperRequest, HyperResponse};
-use super::{Api, ApiResult, Namespace, Request, };
-use futures::{self, Future, Stream};
+use super::{Api, ApiResult, Namespace, Request};
+use futures::{self, Future};
 
 pub struct Writium {
     extra: HashMap<String, String>,
@@ -40,7 +40,7 @@ impl Writium {
         -> Box<Future<Item=HyperResponse, Error=::hyper::Error>> {
         let (method, uri, _, headers, body) = req.deconstruct();
         // TODO: Deal with that path segments are not parsed.
-        let req = Request::construct(method, uri, headers, Box::new(body.concat2())).unwrap();
+        let req = Request::construct(method, uri, headers, body).unwrap();
         // No need to check namespace name; no post processing. Safe to route
         // directly.
         Box::new(match self._route(req) {

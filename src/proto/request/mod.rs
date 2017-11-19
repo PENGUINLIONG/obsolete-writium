@@ -1,6 +1,8 @@
-use futures::Future;
 use hyper::{Headers, Method, Uri};
 use hyper::header::Header;
+
+mod body;
+pub use self::body::{HyperBody, RequestBody};
 
 pub use hyper::Request as HyperRequest;
 
@@ -29,7 +31,7 @@ pub struct Request {
     uri: Uri,
     path_segs: Vec<String>,
     headers: Headers,
-    body: Box<Future<Item=::hyper::Chunk, Error=::hyper::Error>>,
+    body: RequestBody,
 }
 impl Request {
     pub fn new(method: Method, uri: &str) -> Option<Request> {
@@ -43,12 +45,11 @@ impl Request {
             method: method,
             uri: uri,
             headers: Headers::new(),
-            body: Box::new(::futures::future::ok([].as_ref().into())),
+            body: RequestBody::default(),
         })
     }
     pub fn construct(method: Method, uri: Uri, headers: Headers,
-        body: Box<Future<Item=::hyper::Chunk, Error=::hyper::Error>>)
-        -> Option<Request> {
+        body: HyperBody) -> Option<Request> {
         Some(Request {
             path_segs:
                 if let Some(segs) = collect_path_segs(uri.path()) { segs }
@@ -56,7 +57,7 @@ impl Request {
             method: method,
             uri: uri,
             headers: headers,
-            body: body,
+            body: RequestBody::from(body),
         })
     }
 
@@ -68,9 +69,12 @@ impl Request {
         self.headers = headers;
         self
     }
-    pub fn with_body<T>(mut self, body: T) -> Self
-        where ::hyper::Chunk: From<T> {
-        self.body = Box::new(::futures::future::ok(body.into()));
+    pub fn with_body_bytes(mut self, body: Vec<u8>) -> Self {
+        self.body = RequestBody::from(body);
+        self
+    }
+    pub fn with_body_string(mut self, body: String) -> Self {
+        self.body = RequestBody::from(body);
         self
     }
 
@@ -83,7 +87,7 @@ impl Request {
     pub fn headers(&self) -> &Headers {
         &self.headers
     }
-    pub fn body(self) -> Box<Future<Item=::hyper::Chunk, Error=::hyper::Error>>{
+    pub fn body(self) -> RequestBody {
         self.body
     }
 

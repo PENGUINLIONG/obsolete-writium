@@ -1,4 +1,5 @@
 use hyper::{Headers, StatusCode};
+use hyper::header::Header;
 use serde_json::Value as Json;
 use callback::Callback;
 use error::WritiumError;
@@ -24,7 +25,7 @@ impl Response {
         }
     }
 
-    pub fn with_header<H: ::hyper::header::Header>(mut self, header: H) -> Self {
+    pub fn with_header<H: Header>(mut self, header: H) -> Self {
         self.headers.set(header);
         self
     }

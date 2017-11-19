@@ -21,7 +21,7 @@ pub use namespace::Namespace;
 // Request flow protocol.
 mod proto;
 
-pub use proto::{HyperRequest, HyperResponse, Request, Response};
+pub use proto::{HyperBody, HyperRequest, HyperResponse, Request, RequestBody, Response};
 
 // Error handling.
 mod error;
