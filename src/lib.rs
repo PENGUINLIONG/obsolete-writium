@@ -14,7 +14,7 @@ mod api;
 mod callback;
 mod namespace;
 
-pub use api::{Api, ApiResult, RouteHint};
+pub use api::{Api, ApiFuture, ApiResult, RouteHint};
 pub use callback::Callback;
 pub use namespace::Namespace;
 
@@ -28,4 +28,4 @@ mod error;
 mod result;
 
 pub use error::WritiumError;
-pub use result::WritiumResult;
+pub use result::{ok, err, FutureExt, WritiumFuture, WritiumResult};

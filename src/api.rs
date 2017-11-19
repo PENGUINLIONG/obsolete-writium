@@ -1,18 +1,20 @@
 #![allow(unused_variables)]
 use hyper::{Method, StatusCode};
-use super::{Request, Response, WritiumResult, WritiumError};
+use super::{ok, err, Request, Response, WritiumFuture, WritiumResult,
+    WritiumError};
 
 const NOT_SUPPORTED: &str = "not supported";
 
+pub type ApiFuture = WritiumFuture<Response>;
 pub type ApiResult = WritiumResult<Response>;
 impl From<Response> for ApiResult {
     fn from(res: Response) -> ApiResult {
-        Ok(res)
+        ok(res)
     }
 }
 impl From<WritiumError> for ApiResult {
-    fn from(err: WritiumError) -> ApiResult {
-        Err(err)
+    fn from(e: WritiumError) -> ApiResult {
+        err(e)
     }
 }
 

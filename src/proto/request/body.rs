@@ -6,11 +6,6 @@ use futures::future::ok;
 pub use ::hyper::Body as HyperBody;
 
 pub struct RequestBody(Box<Future<Item=Vec<u8>, Error=WritiumError>>);
-impl RequestBody {
-    fn new() -> RequestBody{
-        RequestBody(Box::new(ok(Vec::new())))
-    }
-}
 impl From<HyperBody> for RequestBody {
     fn from(body: HyperBody) -> RequestBody {
         RequestBody(Box::new(body.concat2()
